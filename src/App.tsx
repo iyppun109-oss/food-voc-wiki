@@ -7,7 +7,6 @@ import {
   categories,
   getCaseById,
   vocCases,
-  type CategoryId,
 } from './data/vocCases'
 import './App.css'
 
@@ -42,7 +41,7 @@ function caseMatchesQuery(
 
 export default function App() {
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null)
-  const [categoryFilter, setCategoryFilter] = useState<CategoryId | 'all'>('all')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
   const selectedCase = selectedCaseId ? getCaseById(selectedCaseId) : null

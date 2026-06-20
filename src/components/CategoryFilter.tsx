@@ -1,9 +1,7 @@
-import type { CategoryId } from '../data/vocCases'
-
 interface CategoryFilterProps {
-  categories: { id: CategoryId; label: string }[]
-  selected: CategoryId | 'all'
-  onSelect: (id: CategoryId | 'all') => void
+  categories: { id: string; label: string }[]
+  selected: string
+  onSelect: (id: string) => void
 }
 
 export function CategoryFilter({
@@ -22,6 +20,7 @@ export function CategoryFilter({
       >
         전체
       </button>
+
       {categories.map((category) => (
         <button
           key={category.id}
