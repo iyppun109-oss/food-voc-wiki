@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+﻿import { useEffect, useRef } from 'react'
 import type { VocCase } from '../data/vocCases'
 
 interface EntryModalProps {
@@ -7,11 +7,11 @@ interface EntryModalProps {
 }
 
 const SECTIONS: { key: keyof VocCase; label: string }[] = [
-  { key: 'incident', label: '사고 내용' },
-  { key: 'customerScript', label: '고객 응대 문구' },
+  { key: 'incident', label: '발생 내용' },
+  { key: 'customerScript', label: '고객 반응' },
   { key: 'onsiteAction', label: '현장 조치' },
   { key: 'rootCause', label: '원인 분석' },
-  { key: 'prevention', label: '재발방지 대책' },
+  { key: 'prevention', label: '재발 방지' },
   { key: 'reportExample', label: '보고서 예시' },
 ]
 
@@ -66,19 +66,23 @@ export function EntryModal({ entry, onClose }: EntryModalProps) {
             onClick={onClose}
             aria-label="닫기"
           >
-            ✕
+            닫기
           </button>
         </header>
 
         <div className="modal__body">
-          {SECTIONS.map(({ key, label }) => (
-            <section key={key} className="modal__section">
-              <h3>{label}</h3>
-              <p className={key === 'customerScript' ? 'modal__script' : undefined}>
-                {entry[key]}
-              </p>
-            </section>
-          ))}
+          <div className="modal__details">
+            {SECTIONS.map(({ key, label }) => (
+              <section key={key} className="modal__section">
+                <h3>{label}</h3>
+                <p
+                  className={key === 'customerScript' ? 'modal__script' : 'modal__text'}
+                >
+                  {entry[key]}
+                </p>
+              </section>
+            ))}
+          </div>
         </div>
       </div>
     </div>
