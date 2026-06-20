@@ -1,0 +1,324 @@
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.site-header {
+  background: var(--color-navy-dark);
+  color: #ffffff;
+  padding: 2rem 1.25rem 1.75rem;
+  border-bottom: 3px solid var(--color-navy-light);
+}
+
+.site-header__inner,
+.main,
+.site-footer {
+  width: min(100% - 2rem, var(--max-width));
+  margin-inline: auto;
+}
+
+.site-header__title {
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+.site-header__tagline {
+  margin-top: 0.65rem;
+  max-width: 36rem;
+  color: rgb(255 255 255 / 82%);
+  font-size: 0.95rem;
+}
+
+.main {
+  flex: 1;
+  padding: 1.5rem 0 2.5rem;
+}
+
+.search-bar {
+  margin-bottom: 1rem;
+}
+
+.search-bar__label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-navy);
+  margin-bottom: 0.4rem;
+}
+
+.search-bar__input {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.search-bar__input::placeholder {
+  color: #94a3b8;
+}
+
+.search-bar__count {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.category-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
+}
+
+.chip {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.chip:hover {
+  border-color: var(--color-navy-light);
+  background: var(--color-navy-soft);
+}
+
+.chip--active {
+  background: var(--color-navy);
+  border-color: var(--color-navy);
+  color: white;
+}
+
+.entry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.85rem;
+}
+
+.entry-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1.1rem;
+  text-align: left;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.entry-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-navy-light);
+}
+
+.entry-card__category {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  background: var(--color-navy-soft);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  align-self: flex-start;
+}
+
+.entry-card__title {
+  font-size: 1.05rem;
+  line-height: 1.35;
+  color: var(--color-navy-dark);
+}
+
+.entry-card__summary {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+  flex: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.entry-card__link {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-navy);
+}
+
+.empty-state {
+  padding: 2rem;
+  text-align: center;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.text-button {
+  margin-top: 0.75rem;
+  border: none;
+  background: none;
+  color: var(--color-navy);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(15 39 68 / 55%);
+  backdrop-filter: blur(2px);
+}
+
+.modal {
+  width: min(100%, 640px);
+  max-height: min(90vh, 800px);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  overflow: hidden;
+}
+
+.modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.25rem 1.25rem 1rem;
+  background: var(--color-navy-dark);
+  color: white;
+}
+
+.modal__category {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgb(255 255 255 / 15%);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.modal__title {
+  font-size: 1.2rem;
+  line-height: 1.35;
+}
+
+.modal__close {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: rgb(255 255 255 / 12%);
+  color: white;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.modal__close:hover {
+  background: rgb(255 255 255 / 22%);
+}
+
+.modal__body {
+  overflow-y: auto;
+  padding: 0.5rem 1.25rem 1.25rem;
+}
+
+.modal__section {
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.modal__section:last-child {
+  border-bottom: none;
+}
+
+.modal__section h3 {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-navy);
+  margin-bottom: 0.45rem;
+}
+
+.modal__section p {
+  font-size: 0.92rem;
+  color: var(--color-text);
+  white-space: pre-line;
+}
+
+.modal__script {
+  padding: 0.75rem 0.85rem;
+  background: var(--color-navy-soft);
+  border-left: 3px solid var(--color-navy);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.site-footer {
+  padding: 1rem 0 1.5rem;
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  border-top: 1px solid var(--color-border);
+}
+
+@media (max-width: 640px) {
+  .site-header {
+    padding: 1.5rem 1rem 1.25rem;
+  }
+
+  .main {
+    padding-top: 1.25rem;
+  }
+
+  .category-filter {
+    gap: 0.35rem;
+  }
+
+  .chip {
+    font-size: 0.8rem;
+    padding: 0.35rem 0.65rem;
+  }
+
+  .entry-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .modal__header {
+    padding: 1rem;
+  }
+
+  .modal__title {
+    font-size: 1.05rem;
+  }
+
+  .modal__body {
+    padding: 0.25rem 1rem 1rem;
+  }
+}
