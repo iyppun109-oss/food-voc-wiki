@@ -3,6 +3,7 @@ import { CategoryFilter } from './components/CategoryFilter'
 import { EntryCard } from './components/EntryCard'
 import { EntryModal } from './components/EntryModal'
 import { ReportGeneratorModal } from './components/ReportGeneratorModal'
+import { MenuLab } from './components/MenuLab'
 import { SearchBar } from './components/SearchBar'
 import {
   categories,
@@ -41,6 +42,7 @@ function caseMatchesQuery(
 }
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState<'voc' | 'recommend'>('voc')
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -85,123 +87,152 @@ export default function App() {
           </div>
         </div>
         <div className="site-header__actions">
-          <button
-            type="button"
-            className="report-button report-button--primary"
-            onClick={() => setIsReportModalOpen(true)}
-          >
-            VOC 보고서 작성
-          </button>
+          <nav className="main-nav-tabs" aria-label="기능 탭">
+            <button
+              type="button"
+              className={`main-nav-tab ${activeTab === 'voc' ? 'is-active' : ''}`}
+              onClick={() => setActiveTab('voc')}
+              aria-pressed={activeTab === 'voc'}
+            >
+              VOC 대응
+            </button>
+            <button
+              type="button"
+              className={`main-nav-tab ${activeTab === 'recommend' ? 'is-active' : ''}`}
+              onClick={() => setActiveTab('recommend')}
+              aria-pressed={activeTab === 'recommend'}
+            >
+              메뉴 추천
+            </button>
+          </nav>
+          {activeTab === 'voc' ? (
+            <button
+              type="button"
+              className="report-button report-button--primary"
+              onClick={() => setIsReportModalOpen(true)}
+            >
+              VOC 보고서 작성
+            </button>
+          ) : null}
         </div>
       </header>
 
       <main className="main">
-        <section className="summary-panel" aria-label="서비스 요약">
-          <article className="summary-card">
-            <p className="summary-card__label">총 VOC 사례 수</p>
-            <p className="summary-card__value">{vocCases.length}건</p>
-          </article>
-          <article className="summary-card">
-            <p className="summary-card__label">주요 카테고리 수</p>
-            <p className="summary-card__value">{categories.length}개</p>
-          </article>
-          <article className="summary-card">
-            <p className="summary-card__label">보고서 작성 기능</p>
-            <p className="summary-card__value">바로 생성 가능</p>
-          </article>
-          <article className="summary-card">
-            <p className="summary-card__label">모바일 대응</p>
-            <p className="summary-card__value">390px~430px 최적화</p>
-          </article>
-        </section>
-
-        <section className="search-section">
-          <SearchBar
-            value={searchQuery}
-            onChange={setSearchQuery}
-            resultCount={filteredCases.length}
-          />
-
-          <section className="keyword-shortcuts" aria-label="자주 찾는 사례">
-            <h3 className="keyword-shortcuts__title">🔥 자주 찾는 사례</h3>
-            <div className="keyword-shortcuts__list">
-              {quickKeywords.map((keyword) => {
-                const isActive = searchQuery === keyword
-                return (
-                  <button
-                    key={keyword}
-                    type="button"
-                    className={`chip keyword-shortcut-chip ${
-                      isActive ? 'chip--active' : ''
-                    }`}
-                    onClick={() => handleQuickSearch(keyword)}
-                    aria-pressed={isActive}
-                  >
-                    {keyword}
-                  </button>
-                )
-              })}
-            </div>
+        {activeTab === 'voc' ? (
+        <>
+          <section className="summary-panel" aria-label="서비스 요약">
+            <article className="summary-card">
+              <p className="summary-card__label">총 VOC 사례 수</p>
+              <p className="summary-card__value">{vocCases.length}건</p>
+            </article>
+            <article className="summary-card">
+              <p className="summary-card__label">주요 카테고리 수</p>
+              <p className="summary-card__value">{categories.length}개</p>
+            </article>
+            <article className="summary-card">
+              <p className="summary-card__label">보고서 작성 기능</p>
+              <p className="summary-card__value">바로 생성 가능</p>
+            </article>
+            <article className="summary-card">
+              <p className="summary-card__label">모바일 대응</p>
+              <p className="summary-card__value">390px~430px 최적화</p>
+            </article>
           </section>
 
-          <section className="keyword-shortcuts keyword-shortcuts--secondary" aria-label="인기 VOC">
-            <h3 className="keyword-shortcuts__title">⭐ 인기 VOC</h3>
-            <div className="keyword-shortcuts__list">
-              {popularKeywords.map((keyword) => {
-                const isActive = searchQuery === keyword
-                return (
-                  <button
-                    key={keyword}
-                    type="button"
-                    className={`chip keyword-shortcut-chip ${
-                      isActive ? 'chip--active' : ''
-                    }`}
-                    onClick={() => handleQuickSearch(keyword)}
-                    aria-pressed={isActive}
-                  >
-                    {keyword}
-                  </button>
-                )
-              })}
-            </div>
-          </section>
+          <section className="search-section">
+            <SearchBar
+              value={searchQuery}
+              onChange={setSearchQuery}
+              resultCount={filteredCases.length}
+            />
 
-          <CategoryFilter
-            categories={categories}
-            selected={categoryFilter}
-            onSelect={setCategoryFilter}
-          />
-        </section>
+            <section className="keyword-shortcuts" aria-label="자주 찾는 사례">
+              <h3 className="keyword-shortcuts__title">🔥 자주 찾는 사례</h3>
+              <div className="keyword-shortcuts__list">
+                {quickKeywords.map((keyword) => {
+                  const isActive = searchQuery === keyword
+                  return (
+                    <button
+                      key={keyword}
+                      type="button"
+                      className={`chip keyword-shortcut-chip ${
+                        isActive ? 'chip--active' : ''
+                      }`}
+                      onClick={() => handleQuickSearch(keyword)}
+                      aria-pressed={isActive}
+                    >
+                      {keyword}
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
 
-        <div className="result-summary">
-          <p>{`검색 결과 ${filteredCases.length}건`}</p>
-          <span>{`${activeCategoryLabel}${searchQuery ? ` · "${searchQuery}" 검색` : ''}`}</span>
-        </div>
-
-        {filteredCases.length === 0 ? (
-          <div className="empty-state">
-            <p>조건에 맞는 VOC 사례가 없습니다.</p>
-            <button
-              type="button"
-              className="text-button"
-              onClick={() => {
-                setSearchQuery('')
-                setCategoryFilter('all')
-              }}
+            <section
+              className="keyword-shortcuts keyword-shortcuts--secondary"
+              aria-label="인기 VOC"
             >
-              필터 초기화
-            </button>
+              <h3 className="keyword-shortcuts__title">⭐ 인기 VOC</h3>
+              <div className="keyword-shortcuts__list">
+                {popularKeywords.map((keyword) => {
+                  const isActive = searchQuery === keyword
+                  return (
+                    <button
+                      key={keyword}
+                      type="button"
+                      className={`chip keyword-shortcut-chip ${
+                        isActive ? 'chip--active' : ''
+                      }`}
+                      onClick={() => handleQuickSearch(keyword)}
+                      aria-pressed={isActive}
+                    >
+                      {keyword}
+                    </button>
+                  )
+                })}
+              </div>
+            </section>
+
+            <CategoryFilter
+              categories={categories}
+              selected={categoryFilter}
+              onSelect={setCategoryFilter}
+            />
+          </section>
+
+          <div className="result-summary">
+            <p>{`검색 결과 ${filteredCases.length}건`}</p>
+            <span>{`${activeCategoryLabel}${searchQuery ? ` · "${searchQuery}" 검색` : ''}`}</span>
           </div>
+
+          {filteredCases.length === 0 ? (
+            <div className="empty-state">
+              <p>조건에 맞는 VOC 사례가 없습니다.</p>
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => {
+                  setSearchQuery('')
+                  setCategoryFilter('all')
+                }}
+              >
+                필터 초기화
+              </button>
+            </div>
+          ) : (
+            <div className="entry-grid">
+              {filteredCases.map((entry) => (
+                <EntryCard
+                  key={entry.id}
+                  entry={entry}
+                  onSelect={setSelectedCaseId}
+                />
+              ))}
+            </div>
+          )}
+        </>
         ) : (
-          <div className="entry-grid">
-            {filteredCases.map((entry) => (
-              <EntryCard
-                key={entry.id}
-                entry={entry}
-                onSelect={setSelectedCaseId}
-              />
-            ))}
-          </div>
+          <MenuLab />
         )}
       </main>
 

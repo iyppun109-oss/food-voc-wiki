@@ -1,46 +1,82 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { type FormEvent } from 'react'
 import { vocCases, type VocCase } from '../data/vocCases'
-import { getReportSentenceTemplate } from '../data/reportSentenceTemplates'
+import {
+  customerReactionOptions,
+  onsiteActionOptions,
+  generateClientReport,
+  generateCustomerMessage,
+  generateInternalReport,
+  responseIntensityOptions,
+  reportDetailLevelOptions,
+  type CustomerReaction,
+  type OnsiteAction,
+  type GeneratedReport,
+  type ReportFormState,
+} from '../utils/reportGenerator'
+import {
+  applyRecommendedExpressions,
+  checkForbiddenExpressions,
+  type ForbiddenMatch,
+} from '../utils/reportSafetyChecker'
 
 interface ReportGeneratorModalProps {
   onClose: () => void
 }
 
-interface ReportFormState {
-  workplace: string
-  owner: string
-  menuName: string
-  vocType: string
-  occurredAt: string
-  customerInfo: string
-  incidentDetails: string
-  customerReaction: string
-  actionPlan: string
-  rootCause: string
-  prevention: string
-  keyword: string
-}
+type ReportType = 'customer' | 'internal' | 'client'
+
+type ReportTypeLabel = Record<ReportType, string>
+type ReportTextField = keyof GeneratedReport
 
 interface RecommendedCase {
   case: VocCase
   score: number
 }
 
-type ReportSection = 'incident' | 'action' | 'cause' | 'prevention'
-
 const initialFormState: ReportFormState = {
+  keyword: '',
   workplace: '',
-  owner: '',
+  restaurantManagerName: '',
+  clientContactName: '',
   menuName: '',
-  vocType: '',
   occurredAt: '',
   customerInfo: '',
-  incidentDetails: '',
-  customerReaction: '',
-  actionPlan: '',
-  rootCause: '',
-  prevention: '',
-  keyword: '',
+  memo: '',
+  customerReactions: [],
+  onsiteActions: [],
+  responseIntensity: responseIntensityOptions[0],
+  reportDetailLevel: reportDetailLevelOptions[1],
+}
+
+const initialGeneratedReport: GeneratedReport = {
+  customerMessage: '',
+  internalReport: '',
+  clientReport: '',
+}
+
+const initialCopyState: Record<ReportType, boolean> = {
+  customer: false,
+  internal: false,
+  client: false,
+}
+
+const initialSafetyChecks: Record<ReportType, ForbiddenMatch[]> = {
+  customer: [],
+  internal: [],
+  client: [],
+}
+
+const reportTypeLabels: ReportTypeLabel = {
+  customer: '고객용 대응 메시지',
+  internal: '사내 보고용',
+  client: '고객사 보고용',
+}
+
+const reportTextFieldByType: Record<ReportType, ReportTextField> = {
+  customer: 'customerMessage',
+  internal: 'internalReport',
+  client: 'clientReport',
 }
 
 function normalizeText(value: string) {
@@ -51,131 +87,19 @@ function isBlank(value: string) {
   return value.trim().length === 0
 }
 
-function cleanInput(value: string) {
-  return value
-    .trim()
-    .replace(/\s+/g, ' ')
-    .replace(/^[\s\-•*·]+/, '')
-    .replace(/^[\"'`]+|[\"'`]+$/g, '')
-}
-
-function shortenForSentence(value: string, maxLength = 38) {
-  const cleaned = cleanInput(value).replace(/["'`]/g, '')
-  if (!cleaned) return ''
-  if (cleaned.length <= maxLength) return cleaned
-  return cleaned.slice(0, maxLength - 1)
-}
-
-function stripVerbSuffix(value: string) {
-  return value
-    .trim()
-    .replace(/입니다\.?$/g, '함')
-    .replace(/있습니다\.?$/g, '있음')
-    .replace(/합니다\.?$/g, '함')
-}
-
-function pickTemplateSentence(templates: string[], seedText: string) {
-  if (templates.length === 0) return ''
-
-  const normalized = normalizeText(seedText)
-  if (!normalized) {
-    return stripVerbSuffix(templates[0] ?? '')
-  }
-
-  const hash = Array.from(normalized).reduce((acc, char) => {
-    return (acc * 131 + char.charCodeAt(0)) % Number.MAX_SAFE_INTEGER
-  }, 17)
-
-  return stripVerbSuffix(templates[hash % templates.length] ?? templates[0] ?? '')
-}
-
-function buildSentenceFromInput(section: ReportSection, userText: string, menuName: string) {
-  const menuText = cleanInput(menuName) || '해당 메뉴'
-  const content = shortenForSentence(userText, 28)
-  if (!content) return ''
-
-  switch (section) {
-    case 'incident':
-      return stripVerbSuffix(`${menuText} 이용 중 ${content} 확인됨`)
-    case 'action':
-      return stripVerbSuffix(`현장 대응으로 ${content} 처리 진행함`)
-    case 'cause':
-      return stripVerbSuffix(`${content}(으)로 원인 가능성 있음`)
-    case 'prevention':
-      return stripVerbSuffix(`${content} 개선 반영해 재발 방지 강화하겠음`)
-    default:
-      return ''
-  }
-}
-
-function buildSentenceFromCase(
-  section: ReportSection,
-  caseText: string,
-  menuName: string,
-) {
-  const menuText = cleanInput(menuName) || '해당 메뉴'
-  const content = shortenForSentence(caseText, 24)
-  if (!content) return ''
-
-  switch (section) {
-    case 'incident':
-      return stripVerbSuffix(`${menuText}에서 유사 사례 기준 ${content}`)
-    case 'action':
-      return stripVerbSuffix(`유사 사례 처리 방식으로 ${content}(을)를 적용함`)
-    case 'cause':
-      return stripVerbSuffix(`사례 분석상 ${content}로 판단되어 원인 가능성 있음`)
-    case 'prevention':
-      return stripVerbSuffix(`유사 건 반영해 ${content} 보완하고 예방 조치 강화하겠음`)
-    default:
-      return ''
-  }
-}
-
-function selectSentenceBySection(
-  section: ReportSection,
-  userText: string,
-  caseText: string | undefined,
-  templateCandidates: string[],
-  seedText: string,
-  menuName: string,
-) {
-  const userSentence = buildSentenceFromInput(section, userText, menuName)
-  const caseSentence = !isBlank(userText) ? '' : buildSentenceFromCase(section, cleanInput(caseText ?? ''), menuName)
-
-  if (userSentence) return userSentence
-  if (caseSentence) return caseSentence
-
-  return pickTemplateSentence(templateCandidates, seedText)
-}
-
-function buildCustomerReaction(userText: string, caseText: string | undefined) {
-  const cleanedUser = cleanInput(userText)
-  if (cleanedUser) {
-    return stripVerbSuffix(`고객은 ${shortenForSentence(cleanedUser, 28)} 반응함`)
-  }
-
-  const cleanedCase = cleanInput(caseText ?? '')
-  if (cleanedCase) {
-    return stripVerbSuffix(`고객 코멘트는 ${shortenForSentence(cleanedCase, 28)} 반응 확인`)
-  }
-
-  return '고객 반응은 응대로 기록함'
-}
-
 export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
   const [formState, setFormState] = useState<ReportFormState>(initialFormState)
   const [selectedCase, setSelectedCase] = useState<VocCase | null>(null)
-  const [generatedReport, setGeneratedReport] = useState('')
-  const [copied, setCopied] = useState(false)
+  const [generatedReport, setGeneratedReport] = useState<GeneratedReport>(initialGeneratedReport)
+  const [editableReport, setEditableReport] = useState<GeneratedReport>(initialGeneratedReport)
+  const [copiedState, setCopiedState] = useState<Record<ReportType, boolean>>(initialCopyState)
+  const [safetyChecks, setSafetyChecks] = useState<Record<ReportType, ForbiddenMatch[]>>(initialSafetyChecks)
   const [isDateTimePickerOpen, setIsDateTimePickerOpen] = useState(false)
   const [tempDate, setTempDate] = useState('')
   const [tempTime, setTempTime] = useState('')
   const closeButtonRef = useRef<HTMLButtonElement>(null)
 
-  const normalizedKeyword = useMemo(
-    () => normalizeText(formState.keyword),
-    [formState.keyword],
-  )
+  const normalizedKeyword = useMemo(() => normalizeText(formState.keyword), [formState.keyword])
 
   const recommendations = useMemo(() => {
     if (!normalizedKeyword) return [] as VocCase[]
@@ -183,7 +107,7 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
     const keywords = normalizedKeyword
       .split(/[\s,]+/)
       .map((keyword) => keyword.trim())
-      .filter((keyword) => keyword.length > 0)
+      .filter(Boolean)
 
     return vocCases
       .map((entry): RecommendedCase => {
@@ -215,37 +139,38 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
 
   const isFormComplete = useMemo(
     () =>
-      formState.workplace.trim().length > 0 &&
-      formState.owner.trim().length > 0 &&
-      formState.menuName.trim().length > 0 &&
-      formState.vocType.trim().length > 0 &&
-      formState.occurredAt.trim().length > 0 &&
-      formState.customerInfo.trim().length > 0,
+      !isBlank(formState.keyword) &&
+      !isBlank(formState.workplace) &&
+      !isBlank(formState.restaurantManagerName) &&
+      !isBlank(formState.menuName) &&
+      !isBlank(formState.occurredAt) &&
+      !isBlank(formState.customerInfo),
     [formState],
   )
 
+  const activeCase = useMemo(() => selectedCase ?? recommendations[0] ?? null, [selectedCase, recommendations])
+
+  const getSafetyEntries = () => {
+    return Object.entries(safetyChecks) as Array<[ReportType, ForbiddenMatch[]]>
+  }
+
+  const safetyTotalCount = Object.values(safetyChecks).reduce((acc, list) => acc + list.length, 0)
+
   const openDateTimePicker = () => {
     const parsedDate = parseDateTimeValue(formState.occurredAt)
-
     setTempDate(formatDateInputValue(parsedDate))
     setTempTime(formatTimeInputValue(parsedDate))
     setIsDateTimePickerOpen(true)
   }
 
   const applyDateTimeSelection = () => {
-    const nextDateTime = combineDateTimeValue(tempDate, tempTime)
-    if (!nextDateTime) return
-
-    setFormState((prev) => ({
-      ...prev,
-      occurredAt: nextDateTime,
-    }))
+    const next = combineDateTimeValue(tempDate, tempTime)
+    if (!next) return
+    setFormState((prev) => ({ ...prev, occurredAt: next }))
     setIsDateTimePickerOpen(false)
   }
 
-  const cancelDateTimeSelection = () => {
-    setIsDateTimePickerOpen(false)
-  }
+  const cancelDateTimeSelection = () => setIsDateTimePickerOpen(false)
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -263,124 +188,109 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
     }
 
     window.addEventListener('keydown', handleKeyDown)
-
     return () => {
       document.body.style.overflow = previousOverflow
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [isDateTimePickerOpen, onClose])
 
-  const applyRecommendedCase = (recommended: VocCase) => {
-    setFormState((prev) => ({
-      ...prev,
-      vocType: recommended.category,
-      incidentDetails: isBlank(prev.incidentDetails)
-        ? recommended.incident
-        : prev.incidentDetails,
-      customerReaction: isBlank(prev.customerReaction)
-        ? recommended.customerScript
-        : prev.customerReaction,
-      actionPlan: isBlank(prev.actionPlan)
-        ? recommended.onsiteAction
-        : prev.actionPlan,
-      rootCause: isBlank(prev.rootCause)
-        ? recommended.rootCause
-        : prev.rootCause,
-      prevention: isBlank(prev.prevention)
-        ? recommended.prevention
-        : prev.prevention,
-    }))
-
+  const handleApplyRecommendedCase = (recommended: VocCase) => {
     setSelectedCase(recommended)
+  }
+
+  const handleCustomerReactionToggle = (reaction: CustomerReaction) => {
+    setFormState((prev) => {
+      const next = prev.customerReactions.includes(reaction)
+        ? prev.customerReactions.filter((item) => item !== reaction)
+        : [...prev.customerReactions, reaction]
+
+      return { ...prev, customerReactions: next }
+    })
+  }
+
+  const handleOnsiteActionToggle = (action: OnsiteAction) => {
+    setFormState((prev) => {
+      const next = prev.onsiteActions.includes(action)
+        ? prev.onsiteActions.filter((item) => item !== action)
+        : [...prev.onsiteActions, action]
+
+      return { ...prev, onsiteActions: next }
+    })
   }
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!isFormComplete) return
 
-    const reportTemplate = getReportSentenceTemplate(formState.vocType)
-    const seedBase = [
-      formState.vocType,
-      selectedCase?.id,
-      selectedCase?.category,
-      formState.keyword,
-      formState.menuName,
-      formState.workplace,
-    ]
-      .filter(Boolean)
-      .join(' | ')
+    const nextGeneratedReport: GeneratedReport = {
+      customerMessage: generateCustomerMessage(formState, activeCase),
+      internalReport: generateInternalReport(formState, activeCase),
+      clientReport: generateClientReport(formState, activeCase),
+    }
 
-    const incident = selectSentenceBySection(
-      'incident',
-      formState.incidentDetails,
-      selectedCase?.incident,
-      reportTemplate.incidentSentences,
-      `incident:${seedBase}`,
-      formState.menuName,
-    )
-
-    const action = selectSentenceBySection(
-      'action',
-      formState.actionPlan,
-      selectedCase?.onsiteAction,
-      reportTemplate.actionSentences,
-      `action:${seedBase}`,
-      formState.menuName,
-    )
-
-    const cause = selectSentenceBySection(
-      'cause',
-      formState.rootCause,
-      selectedCase?.rootCause,
-      reportTemplate.causeSentences,
-      `cause:${seedBase}`,
-      formState.menuName,
-    )
-
-    const prevention = selectSentenceBySection(
-      'prevention',
-      formState.prevention,
-      selectedCase?.prevention,
-      reportTemplate.preventionSentences,
-      `prevention:${seedBase}`,
-      formState.menuName,
-    )
-
-    const customerReaction = buildCustomerReaction(
-      formState.customerReaction,
-      selectedCase?.customerScript,
-    )
-
-    const report = `[고객 VOC 사고 보고]
-
-1.사업장 : ${formState.workplace}
-(PM : ${formState.owner})
-
-2.VOC 유형 : ${formState.vocType}
-
-3.발생 일시 : ${formatDateTime(formState.occurredAt)}
-
-4.고객 정보 : ${formState.customerInfo}
-
-5.발생 내용
-- ${incident}
-- ${customerReaction}
-
-6.조치 사항 및 계획
-- ${action}
-- ${cause}
-- ${prevention}
-
-이상입니다.`
-
-    setGeneratedReport(report)
-    setCopied(false)
+    setGeneratedReport(nextGeneratedReport)
+    setEditableReport(nextGeneratedReport)
+    setSafetyChecks({
+      customer: checkForbiddenExpressions(nextGeneratedReport.customerMessage),
+      internal: checkForbiddenExpressions(nextGeneratedReport.internalReport),
+      client: checkForbiddenExpressions(nextGeneratedReport.clientReport),
+    })
+    setCopiedState(initialCopyState)
   }
 
-  const handleCopy = async () => {
-    if (!generatedReport) return
-    await navigator.clipboard.writeText(generatedReport)
-    setCopied(true)
+  const handleCopy = async (type: ReportType, text: string) => {
+    if (!text) return
+    await navigator.clipboard.writeText(text)
+    setCopiedState((prev) => ({ ...prev, [type]: true }))
   }
+
+  const handleEditableChange = (type: ReportType, value: string) => {
+    setEditableReport((prev) => ({ ...prev, [type]: value }))
+    setCopiedState((prev) => ({ ...prev, [type]: false }))
+    setSafetyChecks((prev) => ({
+      ...prev,
+      [type]: checkForbiddenExpressions(value),
+    }))
+  }
+
+  const handleApplyRecommendation = (type: ReportType) => {
+    const reportField = reportTextFieldByType[type]
+    const nextText = applyRecommendedExpressions(editableReport[reportField])
+    setEditableReport((prev) => ({ ...prev, [reportField]: nextText }))
+    setSafetyChecks((prev) => ({
+      ...prev,
+      [type]: checkForbiddenExpressions(nextText),
+    }))
+    setCopiedState((prev) => ({ ...prev, [type]: false }))
+  }
+
+  const handleApplyAllRecommendations = () => {
+    const customerField = reportTextFieldByType.customer
+    const internalField = reportTextFieldByType.internal
+    const clientField = reportTextFieldByType.client
+    const nextEditableReport: GeneratedReport = {
+      customerMessage: applyRecommendedExpressions(editableReport[customerField]),
+      internalReport: applyRecommendedExpressions(editableReport[internalField]),
+      clientReport: applyRecommendedExpressions(editableReport[clientField]),
+    }
+
+    setEditableReport(nextEditableReport)
+    setSafetyChecks({
+      customer: checkForbiddenExpressions(nextEditableReport.customerMessage),
+      internal: checkForbiddenExpressions(nextEditableReport.internalReport),
+      client: checkForbiddenExpressions(nextEditableReport.clientReport),
+    })
+    setCopiedState(initialCopyState)
+  }
+
+  const getSeverityClass = (severity: ForbiddenMatch['severity']) => {
+    if (severity === '중대') return 'is-severity-high'
+    if (severity === '위험') return 'is-severity-medium'
+    return 'is-severity-low'
+  }
+
+  const hasResult = Object.values(generatedReport).some((text) => text.length > 0)
+  const hasAnyViolation = safetyTotalCount > 0
 
   return (
     <div
@@ -392,12 +302,7 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
         }
       }}
     >
-      <div
-        className="modal report-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="report-modal-title"
-      >
+      <div className="modal report-modal" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
         <header className="modal__header">
           <h2 id="report-modal-title" className="modal__title">
             VOC 보고서 작성
@@ -409,88 +314,43 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
             onClick={onClose}
             aria-label="닫기"
           >
-            ×
+            닫기
           </button>
         </header>
 
         <div className="modal__body report-modal__body">
-          <label className="report-form__field">
-            <span>사례 키워드</span>
-            <input
-              type="text"
-              value={formState.keyword}
-              onChange={(event) =>
-                setFormState((prev) => ({ ...prev, keyword: event.target.value }))
-              }
-              placeholder="예: 머리카락, 벌레, 비닐, 품절, 염도, 오징어뼈"
-            />
-          </label>
-
-          {recommendations.length > 0 && (
-            <section className="report-recommendation">
-              <h3 className="report-recommendation__title">추천 사례</h3>
-              <div className="report-recommendation__list">
-                {recommendations.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="report-recommendation__item"
-                    onClick={() => applyRecommendedCase(item)}
-                  >
-                    <span className="report-recommendation__case-title">
-                      {item.title}
-                    </span>
-                    <span className="report-recommendation__case-meta">
-                      {item.id} | {item.category}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-
           <form className="report-form" onSubmit={handleSubmit}>
             <label className="report-form__field">
               <span>사업장</span>
               <input
                 type="text"
                 value={formState.workplace}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, workplace: event.target.value }))
-                }
+                onChange={(event) => setFormState((prev) => ({ ...prev, workplace: event.target.value }))}
+                placeholder="OO 식당"
               />
             </label>
 
             <label className="report-form__field">
-              <span>담당자</span>
+              <span>식당관리자 이름</span>
               <input
                 type="text"
-                value={formState.owner}
+                value={formState.restaurantManagerName}
                 onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, owner: event.target.value }))
+                  setFormState((prev) => ({ ...prev, restaurantManagerName: event.target.value }))
                 }
+                placeholder="식당 관리자 성함"
               />
             </label>
 
             <label className="report-form__field">
-              <span>메뉴명</span>
+              <span>고객사 담당자</span>
               <input
                 type="text"
-                value={formState.menuName}
+                value={formState.clientContactName}
                 onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, menuName: event.target.value }))
+                  setFormState((prev) => ({ ...prev, clientContactName: event.target.value }))
                 }
-              />
-            </label>
-
-            <label className="report-form__field">
-              <span>VOC 유형</span>
-              <input
-                type="text"
-                value={formState.vocType}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, vocType: event.target.value }))
-                }
+                placeholder="고객사 담당자 성함 (선택 입력)"
               />
             </label>
 
@@ -507,39 +367,23 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
                 {formatDateTime(formState.occurredAt) || '발생 일시 선택'}
               </button>
               {isDateTimePickerOpen && (
-                <section className="report-datetime-picker" aria-label="발생 일시 선택 패널">
+                <section className="report-datetime-picker" aria-label="발생 일시 선택">
                   <div className="report-datetime-picker__fields">
                     <label className="report-datetime-picker__field">
                       <span>날짜</span>
-                      <input
-                        type="date"
-                        value={tempDate}
-                        onChange={(event) => setTempDate(event.target.value)}
-                      />
+                      <input type="date" value={tempDate} onChange={(event) => setTempDate(event.target.value)} />
                     </label>
                     <label className="report-datetime-picker__field">
                       <span>시간</span>
-                      <input
-                        type="time"
-                        value={tempTime}
-                        onChange={(event) => setTempTime(event.target.value)}
-                      />
+                      <input type="time" value={tempTime} onChange={(event) => setTempTime(event.target.value)} />
                     </label>
                   </div>
                   <div className="report-datetime-picker__actions">
-                    <button
-                      type="button"
-                      className="report-datetime-picker__cancel"
-                      onClick={cancelDateTimeSelection}
-                    >
+                    <button type="button" className="report-datetime-picker__cancel" onClick={cancelDateTimeSelection}>
                       취소
                     </button>
-                    <button
-                      type="button"
-                      className="report-generate-button"
-                      onClick={applyDateTimeSelection}
-                    >
-                      확인
+                    <button type="button" className="report-generate-button" onClick={applyDateTimeSelection}>
+                      적용
                     </button>
                   </div>
                 </section>
@@ -553,89 +397,245 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
                 onChange={(event) =>
                   setFormState((prev) => ({ ...prev, customerInfo: event.target.value }))
                 }
+                placeholder="인원, 좌석, 이용시간 등"
               />
             </label>
 
             <label className="report-form__field">
-              <span>발생 내용</span>
-              <textarea
-                value={formState.incidentDetails}
-                onChange={(event) =>
-                  setFormState((prev) => ({
-                    ...prev,
-                    incidentDetails: event.target.value,
-                  }))
-                }
+              <span>메뉴명 또는 발생 메뉴</span>
+              <input
+                type="text"
+                value={formState.menuName}
+                onChange={(event) => setFormState((prev) => ({ ...prev, menuName: event.target.value }))}
+                placeholder="예: 제육볶음, 불고기김치찜"
+              />
+            </label>
+
+            <label className="report-form__field">
+              <span>사례 키워드</span>
+              <input
+                type="text"
+                value={formState.keyword}
+                onChange={(event) => setFormState((prev) => ({ ...prev, keyword: event.target.value }))}
+                placeholder="VOC 키워드(고객, 증상, 메뉴), 1~2개"
               />
             </label>
 
             <label className="report-form__field">
               <span>고객 반응</span>
-              <textarea
-                value={formState.customerReaction}
+              <div className="report-form__options-grid">
+                {customerReactionOptions.map((reaction) => (
+                  <label className="report-form__option" key={reaction}>
+                    <input
+                      type="checkbox"
+                      checked={formState.customerReactions.includes(reaction)}
+                      onChange={() => handleCustomerReactionToggle(reaction)}
+                    />
+                    {reaction}
+                  </label>
+                ))}
+              </div>
+            </label>
+
+            <label className="report-form__field">
+              <span>현장 조치</span>
+              <div className="report-form__options-grid">
+                {onsiteActionOptions.map((action) => (
+                  <label className="report-form__option" key={action}>
+                    <input
+                      type="checkbox"
+                      checked={formState.onsiteActions.includes(action)}
+                      onChange={() => handleOnsiteActionToggle(action)}
+                    />
+                    {action}
+                  </label>
+                ))}
+              </div>
+            </label>
+
+            <label className="report-form__field">
+              <span>대응 강도</span>
+              <select
+                value={formState.responseIntensity}
                 onChange={(event) =>
                   setFormState((prev) => ({
                     ...prev,
-                    customerReaction: event.target.value,
+                    responseIntensity: event.target.value as ReportFormState['responseIntensity'],
                   }))
                 }
-              />
+              >
+                {responseIntensityOptions.map((intensity) => (
+                  <option key={intensity} value={intensity}>
+                    {intensity}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label className="report-form__field">
-              <span>조치 사항</span>
-              <textarea
-                value={formState.actionPlan}
+              <span>보고서 상세도</span>
+              <select
+                value={formState.reportDetailLevel}
                 onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, actionPlan: event.target.value }))
+                  setFormState((prev) => ({
+                    ...prev,
+                    reportDetailLevel: event.target.value as ReportFormState['reportDetailLevel'],
+                  }))
                 }
-              />
+              >
+                {reportDetailLevelOptions.map((level) => (
+                  <option key={level} value={level}>
+                    {level}
+                  </option>
+                ))}
+              </select>
             </label>
+
+            {recommendations.length > 0 && (
+              <section className="report-recommendation">
+                <h3 className="report-recommendation__title">유사 사례 추천</h3>
+                <div className="report-recommendation__list">
+                  {recommendations.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`report-recommendation__item ${selectedCase?.id === item.id ? 'is-active' : ''}`}
+                      onClick={() => handleApplyRecommendedCase(item)}
+                    >
+                      <span className="report-recommendation__case-title">{item.title}</span>
+                      <span className="report-recommendation__case-meta">
+                        {item.id} | {item.category}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
 
             <label className="report-form__field">
-              <span>원인 분석</span>
+              <span>추가 메모</span>
               <textarea
-                value={formState.rootCause}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, rootCause: event.target.value }))
-                }
+                value={formState.memo}
+                onChange={(event) => setFormState((prev) => ({ ...prev, memo: event.target.value }))}
+                placeholder="현장 메모 (선택 입력)"
               />
             </label>
 
-            <label className="report-form__field">
-              <span>재발 방지 대책</span>
-              <textarea
-                value={formState.prevention}
-                onChange={(event) =>
-                  setFormState((prev) => ({ ...prev, prevention: event.target.value }))
-                }
-              />
-            </label>
-
-            <button
-              type="submit"
-              className="report-generate-button"
-              disabled={!isFormComplete}
-            >
-              보고서 생성
+            <button type="submit" className="report-generate-button" disabled={!isFormComplete}>
+              VOC 보고서 생성
             </button>
           </form>
 
-          {generatedReport && (
+          {hasResult && (
             <section className="report-result">
               <h3 className="report-result__title">생성 결과</h3>
-              <textarea
-                className="report-result__output"
-                readOnly
-                value={generatedReport}
-              />
-              <button
-                type="button"
-                className="report-copy-button"
-                onClick={handleCopy}
-              >
-                {copied ? '복사 완료' : '결과 복사'}
-              </button>
+              <div className="report-result__cards">
+                <article className="report-result-card">
+                  <h4 className="report-result-card__title">1. 고객용 대응 메시지</h4>
+                  <textarea
+                    className="report-result__output"
+                    value={editableReport.customerMessage}
+                    onChange={(event) => handleEditableChange('customer', event.target.value)}
+                  />
+                  <div className="report-result-card__actions">
+                    <button
+                      type="button"
+                      className="report-copy-button"
+                      onClick={() => handleCopy('customer', editableReport.customerMessage)}
+                    >
+                      {copiedState.customer ? '복사 완료' : '복사'}
+                    </button>
+                    <button
+                      type="button"
+                      className="report-copy-button report-copy-button--ghost"
+                      onClick={() => handleApplyRecommendation('customer')}
+                    >
+                      권장 표현으로 바꾸기
+                    </button>
+                  </div>
+                </article>
+
+                <article className="report-result-card">
+                  <h4 className="report-result-card__title">2. 사내 보고용</h4>
+                  <textarea
+                    className="report-result__output"
+                    value={editableReport.internalReport}
+                    onChange={(event) => handleEditableChange('internal', event.target.value)}
+                  />
+                  <div className="report-result-card__actions">
+                    <button
+                      type="button"
+                      className="report-copy-button"
+                      onClick={() => handleCopy('internal', editableReport.internalReport)}
+                    >
+                      {copiedState.internal ? '복사 완료' : '복사'}
+                    </button>
+                    <button
+                      type="button"
+                      className="report-copy-button report-copy-button--ghost"
+                      onClick={() => handleApplyRecommendation('internal')}
+                    >
+                      권장 표현으로 바꾸기
+                    </button>
+                  </div>
+                </article>
+
+                <article className="report-result-card">
+                  <h4 className="report-result-card__title">3. 고객사 보고용</h4>
+                  <textarea
+                    className="report-result__output"
+                    value={editableReport.clientReport}
+                    onChange={(event) => handleEditableChange('client', event.target.value)}
+                  />
+                  <div className="report-result-card__actions">
+                    <button
+                      type="button"
+                      className="report-copy-button"
+                      onClick={() => handleCopy('client', editableReport.clientReport)}
+                    >
+                      {copiedState.client ? '복사 완료' : '복사'}
+                    </button>
+                    <button
+                      type="button"
+                      className="report-copy-button report-copy-button--ghost"
+                      onClick={() => handleApplyRecommendation('client')}
+                    >
+                      권장 표현으로 바꾸기
+                    </button>
+                  </div>
+                </article>
+              </div>
+
+              <div className="report-safety">
+                <h4 className="report-safety__title">표현 안전성 검사</h4>
+                <button
+                  type="button"
+                  className="report-safety__apply-all"
+                  onClick={handleApplyAllRecommendations}
+                >
+                  전체 권장 표현 적용
+                </button>
+
+                {!hasAnyViolation ? (
+                  <p className="report-safety__safe">위험 표현이 발견되지 않았습니다.</p>
+                ) : (
+                  <div className="report-safety__items">
+                    {getSafetyEntries().map(([type, checks]) =>
+                      checks.map((item) => (
+                        <article key={`${type}-${item.keyword}`} className="report-safety-item">
+                          <h5 className="report-safety-item__label">{reportTypeLabels[type]}</h5>
+                          <p className={`report-safety-item__severity ${getSeverityClass(item.severity)}`}>
+                            위험도: {item.severity}
+                          </p>
+                          <p className="report-safety-item__text">위험 표현: {`"${item.keyword}"`}</p>
+                          <p className="report-safety-item__text">사유: {item.reason}</p>
+                          <p className="report-safety-item__text">권장 표현: {`"${item.replacement}"`}</p>
+                        </article>
+                      )),
+                    )}
+                  </div>
+                )}
+              </div>
             </section>
           )}
         </div>
@@ -650,17 +650,13 @@ function padTwoDigits(value: number) {
 
 function parseDateTimeValue(value: string) {
   if (!value) return new Date()
-
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return new Date()
-
   return parsed
 }
 
 function formatDateInputValue(date: Date) {
-  return `${date.getFullYear()}-${padTwoDigits(date.getMonth() + 1)}-${padTwoDigits(
-    date.getDate(),
-  )}`
+  return `${date.getFullYear()}-${padTwoDigits(date.getMonth() + 1)}-${padTwoDigits(date.getDate())}`
 }
 
 function formatTimeInputValue(date: Date) {
@@ -674,19 +670,15 @@ function combineDateTimeValue(date: string, time: string) {
 
 function formatDateTime(value: string) {
   if (!value) return ''
-
   const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return value
-  }
+  if (Number.isNaN(parsed.getTime())) return value
 
-  const year = parsed.getFullYear()
   const month = parsed.getMonth() + 1
   const day = parsed.getDate()
   const hour = parsed.getHours()
-  const minute = padTwoDigits(parsed.getMinutes())
+  const minute = String(parsed.getMinutes()).padStart(2, '0')
   const isAm = hour < 12
   const displayHour = hour % 12 === 0 ? 12 : hour % 12
 
-  return `${year}. ${month}. ${day}. ${isAm ? '오전' : '오후'} ${displayHour}:${minute}`
+  return `${parsed.getFullYear()}. ${month}. ${day}. ${isAm ? '오전' : '오후'} ${displayHour}:${minute}`
 }

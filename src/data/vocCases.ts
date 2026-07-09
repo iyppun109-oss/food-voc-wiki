@@ -24,6 +24,7 @@ export const categories = [
   { id: '위생 불만', label: '위생 불만' },
   { id: '직원 응대', label: '직원 응대' },
   { id: '식중독 의심', label: '식중독 의심' },
+  { id: '안전사고', label: '안전사고' },
 ]
 
 export const vocCases: VocCase[] = [
@@ -3326,6 +3327,17 @@ export const vocCases: VocCase[] = [
     rootCause: `개별 상황`,
     prevention: `유형별 분류`,
     reportExample: `DB 추가 등록 예정`,
+  },
+  {
+    id: `VOC-302`,
+    title: `식사 중 치아 파절 의심`,
+    category: `안전사고`,
+    incident: `식사 중 딱딱한 물질을 씹은 후 치아 파절 또는 통증을 호소한 사례`,
+    customerScript: `식사 중 불편과 놀라움을 드려 죄송합니다. 우선 고객님의 상태를 확인하고, 말씀 주신 내용은 즉시 현장에서 확인하겠습니다.`,
+    onsiteAction: `고객 상태 확인, 제공 메뉴 및 잔식 확인, 현물 회수 및 보관, 사진 기록, 고객 정보 확인, 관련 메뉴 조리·배식 과정 점검`,
+    rootCause: `원재료 특성상 뼈, 껍질, 단단한 식재료 일부가 잔존했거나 조리·배식 과정 중 이물 혼입 가능성이 있어 확인이 필요함`,
+    prevention: `원재료 선별, 전처리 검수, 조리 후 육안 확인, 배식 전 최종 검수 절차를 강화하겠음`,
+    reportExample: `안전사고 보고를 위해 고객 상태 확인 후 메뉴 및 조리·배식 과정을 재점검할 예정입니다.`,
   },
   ]
   
