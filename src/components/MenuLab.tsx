@@ -1,25 +1,15 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { type BudgetOption, type AvoidIssue, type MenuLabInput, recommendMenus } from '../utils/menuRecommender'
-import { type CustomerType, type MenuDirection, type MealType } from '../data/menuMainItems'
+import { type BudgetOption, type MenuLabInput, type MenuRecommendationItem, recommendMenus } from '../utils/menuRecommender'
+import { type CustomerType, type MenuDirection, type MealType, type VocRisk } from '../data/menuMainItems'
+
+type AvoidIssue = VocRisk | '없음'
 
 const mealOptions: MealType[] = ['조식', '중식', '석식', '야식']
 const budgetOptions: BudgetOption[] = ['8,000원', '9,000원', '11,000원', '직접 입력']
 const customerOptions: CustomerType[] = ['사무직', '생산직', '야근자', '협력사', '일반']
-const directionOptions: MenuDirection[] = ['든든한 메뉴', '트렌디 메뉴', '건강식', '프리미엄', '가성비', '간편 운영형', '균형형']
-const avoidIssueOptions: AvoidIssue[] = [
-  '품절',
-  '양 부족',
-  '염도',
-  '느끼함',
-  '대기시간',
-  '보온 지연',
-  '이물 혼입',
-  '위생',
-  '고객 불편',
-  '직원 응대',
-  '없음',
-]
+const directionOptions: MenuDirection[] = ['든든한 메뉴', '트렌디 메뉴', '건강식', '프리미엄', '가성비']
+const avoidIssueOptions: AvoidIssue[] = ['품절', '양 부족', '염도', '느끼함', '대기시간', '보온 지연', '이물 혼입', '위생', '고객 불편', '직원 응대', '없음']
 
 const initialForm: MenuLabInput = {
   mealType: '중식',
@@ -29,6 +19,50 @@ const initialForm: MenuLabInput = {
   direction: '든든한 메뉴',
   avoidIssues: ['없음'],
   memo: '',
+}
+
+function listSection(title: string, lines: string[], maxLines = 3) {
+  return (
+    <section className="menu-lab-result__section">
+      <h5>{title}</h5>
+      <ul className="menu-lab-result__list">
+        {lines.slice(0, maxLines).map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function formatResultCard(item: MenuRecommendationItem) {
+  return (
+    <article className="menu-lab-result__card" key={`${item.menuName}-${item.rank}`}>
+      <h4 className="menu-lab-result__card-title">
+        메뉴 추천 {item.rank}위: {item.menuName}
+      </h4>
+
+      {listSection('구성 예시', [
+        `메인: ${item.composition.main}`,
+        `국: ${item.composition.soup}`,
+        `찬: ${item.composition.sides.join(', ')}`,
+      ])}
+
+      <section className="menu-lab-result__section">
+        <h5>추천 이유</h5>
+        <p>{item.reason}</p>
+      </section>
+
+      {listSection('VOC 예방 포인트', item.preventionPoints, 4)}
+      {listSection('업그레이드 아이디어', item.upgradeIdeas, 3)}
+      {listSection('대체 메뉴', item.alternatives, 2)}
+      {listSection('운영 주의사항', item.operationNotes, 3)}
+
+      <section className="menu-lab-result__section">
+        <h5>상황 제안</h5>
+        <p>{item.scenario}</p>
+      </section>
+    </article>
+  )
 }
 
 export function MenuLab() {
@@ -60,7 +94,7 @@ export function MenuLab() {
   return (
     <section className="menu-lab">
       <h2 className="menu-lab__title">Menu Lab</h2>
-      <p className="menu-lab__subtitle">식사 구분, 단가, 고객층, 운영 방향으로 메뉴를 제안합니다.</p>
+      <p className="menu-lab__subtitle">상황, 단가, 고객 VOC 이슈를 함께 반영해 메뉴를 추천합니다.</p>
 
       <form className="menu-lab__form" onSubmit={handleSubmit}>
         <label className="menu-lab__field">
@@ -97,7 +131,7 @@ export function MenuLab() {
 
         {form.budget === '직접 입력' ? (
           <label className="menu-lab__field">
-            <span>단가 직접 입력(원)</span>
+            <span>직접 입력 단가</span>
             <input
               type="number"
               min={7000}
@@ -170,53 +204,28 @@ export function MenuLab() {
           <span>추가 메모</span>
           <textarea
             value={form.memo}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, memo: event.target.value }))
-            }
+            onChange={(event) => setForm((prev) => ({ ...prev, memo: event.target.value }))}
             rows={3}
-            placeholder="발생 이슈(예: 2부에서 염도 이슈, 야간 대기 길어짐) 를 입력하세요."
+            placeholder="예: 염도가 높았고 국물 간을 더 가볍게 맞춰주세요."
           />
         </label>
 
         <button type="submit" className="report-generate-button">
-          메뉴 추천
+          메뉴 추천하기
         </button>
       </form>
 
       {result && (
         <section className="menu-lab-result">
           <h3 className="menu-lab-result__title">추천 결과 (최대 3개)</h3>
-          {result.scenarioSummary.length > 0 ? (
-            <p className="menu-lab-result__summary">추천 핵심: {result.scenarioSummary.join(' / ')}</p>
-          ) : null}
-
-          <div className="menu-lab-result__grid">
-            {result.recommendations.map((item) => (
-              <article className="menu-lab-result__card" key={`${item.menuName}-${item.rank}`}>
-                <h4 className="menu-lab-result__card-title">
-                  메뉴 추천 {item.rank}위: {item.menuName}
-                </h4>
-                <p>
-                  <strong>추천 이유:</strong> {item.reason}
-                </p>
-                <p>
-                  <strong>구성 예시:</strong> {item.composition}
-                </p>
-                <p>
-                  <strong>VOC 예방 포인트:</strong> {item.preventionPoints.join(' / ')}
-                </p>
-                <p>
-                  <strong>업그레이드 아이디어:</strong> {item.upgradeIdeas.join(' / ')}
-                </p>
-                <p>
-                  <strong>대체 메뉴:</strong> {item.alternatives}
-                </p>
-                <p>
-                  <strong>상황 제안:</strong> {item.scenario}
-                </p>
-              </article>
+          <div className="menu-lab-result__chips">
+            {result.scenarioSummary.slice(0, 4).map((text) => (
+              <span className="menu-lab-result__chip" key={text}>
+                {text}
+              </span>
             ))}
           </div>
+          <div className="menu-lab-result__grid">{result.recommendations.map((item) => formatResultCard(item))}</div>
         </section>
       )}
     </section>
