@@ -1,22 +1,18 @@
 .search-section {
   display: grid;
-  gap: 0.75rem;
+  gap: 16px;
 }
 
 .keyword-shortcuts {
-  background: var(--surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 0.75rem 0.75rem 0.75rem;
   display: grid;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .keyword-shortcuts__title {
   font-size: 0.8125rem;
   line-height: 1.2;
-  font-weight: 600;
-  color: var(--color-navy-dark);
+  font-weight: 400;
+  color: var(--text-2);
 }
 
 .keyword-shortcuts--secondary {
@@ -61,18 +57,14 @@
 }
 
 .search-bar {
-  background: var(--surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 0.75rem 1rem;
+  display: grid;
+  gap: 8px;
 }
 
 .search-bar__label {
-  display: block;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--color-navy);
-  margin-bottom: 0.5rem;
+  color: var(--text);
 }
 
 .search-bar__input {
@@ -99,21 +91,16 @@
 }
 
 .result-summary {
-  margin-top: 0.75rem;
+  margin-top: 20px;
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
-  gap: 0.5rem;
-  color: var(--text);
-  padding: 0.5rem 0.5rem;
-  background: var(--raised);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
+  gap: 8px;
 }
 
 .result-summary p {
   font-weight: 600;
-  color: var(--color-navy-dark);
+  color: var(--text);
 }
 
 .result-summary span {
@@ -810,10 +797,10 @@
 }
 
 .menu-lab__form {
-  margin-top: 0.5rem;
   display: grid;
-  gap: 0.75rem;
-  padding: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+  padding: 20px;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
@@ -922,19 +909,19 @@
 }
 
 .menu-lab-result {
-  margin-top: 0.75rem;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
-  padding: 1rem;
+  padding: 20px;
   display: grid;
-  gap: 0.5rem;
+  gap: 12px;
 }
 
 .menu-lab-result__title {
   margin: 0;
   color: var(--text);
-  font-size: 1rem;
+  font-size: 1.125rem;
+  font-weight: 600;
 }
 
 .menu-lab-result__chips {
@@ -985,7 +972,7 @@
   gap: 0.5rem;
 }
 
-.menu-lab-result__section > h5 {
+.menu-lab-result__section > h4 {
   margin: 0;
   color: var(--text);
   font-size: 0.875rem;
@@ -1349,3 +1336,136 @@
   color: var(--negative);
 }
 
+
+/* 검색 패널: 검색창 · 바로가기 · 카테고리를 한 덩어리로 */
+.search-panel {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.search-panel .keyword-shortcuts,
+.search-panel .search-bar {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.search-panel .category-filter {
+  margin-top: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.result-summary span {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.menu-lab__field--wide,
+.menu-lab__submit {
+  grid-column: 1 / -1;
+}
+
+.menu-lab__submit {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.menu-lab__checkboxes {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+@media (max-width: 767px) {
+  .search-panel,
+  .menu-lab__form,
+  .menu-lab-result {
+    padding: 16px;
+  }
+
+  .menu-lab__submit .meal-plan__primary {
+    width: 100%;
+  }
+}
+
+/* 메뉴 추천 결과 카드 */
+.menu-lab-result__grid {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.menu-lab-result__card {
+  background: var(--surface);
+  padding: 16px;
+  gap: 12px;
+  align-content: start;
+}
+
+.menu-lab-result__card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.menu-lab-result__rank {
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.menu-lab-result__card-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.menu-lab-result__composition {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--raised);
+  font-size: 0.875rem;
+}
+
+.menu-lab-result__composition > div {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.menu-lab-result__composition dt {
+  color: var(--muted);
+}
+
+.menu-lab-result__composition dd {
+  margin: 0;
+  word-break: keep-all;
+}
+
+.menu-lab-result__reason,
+.menu-lab-result__scenario {
+  font-size: 0.875rem;
+  line-height: 1.55;
+  word-break: keep-all;
+}
+
+.menu-lab-result__scenario {
+  color: var(--text-2);
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.menu-lab-result__sections {
+  display: grid;
+  gap: 12px;
+}
+
+.menu-lab-result__section > h4 {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-2);
+}

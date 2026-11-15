@@ -95,9 +95,16 @@ function PlanCell({ day, row, portions, showNutrition, onReplace }: CellProps) {
             className="meal-plan__meta"
             title={source ? `식약처 DB 음식명: ${source.dbName} (${source.basis})` : undefined}
           >
-            {nutrition
-              ? `${nutrition.servingG}g · ${Math.round(nutrition.kcal)}kcal · 단백질 ${nutrition.proteinG.toFixed(1)}g`
-              : '영양 자료 없음'}
+            {nutrition ? (
+              <>
+                <span>
+                  {nutrition.servingG}g · {Math.round(nutrition.kcal)}kcal
+                </span>
+                <span>단백질 {nutrition.proteinG.toFixed(1)}g</span>
+              </>
+            ) : (
+              '영양 자료 없음'
+            )}
           </span>
         )}
       </span>
@@ -115,6 +122,7 @@ function PlanCell({ day, row, portions, showNutrition, onReplace }: CellProps) {
 }
 
 interface GaugeProps {
+  label: string
   value: number
   unit: string
   min: number
@@ -124,15 +132,16 @@ interface GaugeProps {
 }
 
 /** 하루 합계를 목표 구간과 함께 보여 주는 막대 */
-function Gauge({ value, unit, min, max, status }: GaugeProps) {
+function Gauge({ label, value, unit, min, max, status }: GaugeProps) {
   if (status === 'none') {
-    return <span className="meal-plan__gauge-empty">자료 없음</span>
+    return <span className="meal-plan__gauge-empty">{label} 자료 없음</span>
   }
   const scale = (max ?? min) * 1.3
   const percent = (amount: number) => `${Math.min(100, (amount / scale) * 100)}%`
   return (
     <span className={`meal-plan__gauge meal-plan__gauge--${status}`}>
       <span className="meal-plan__gauge-value">
+        <span className="meal-plan__gauge-label">{label}</span>
         {value.toLocaleString('ko-KR')}
         <span className="meal-plan__gauge-unit">{unit}</span>
         <span className="meal-plan__gauge-status">{statusLabel[status]}</span>
@@ -151,8 +160,15 @@ function Gauge({ value, unit, min, max, status }: GaugeProps) {
 function DayTotals({ nutrition, target }: { nutrition: DayNutrition; target: NutritionTarget }) {
   return (
     <>
-      <Gauge value={nutrition.kcal} unit="kcal" min={target.kcalMin} max={target.kcalMax} status={nutrition.kcalStatus} />
-      <Gauge value={nutrition.proteinG} unit="g" min={target.proteinMin} status={nutrition.proteinStatus} />
+      <Gauge
+        label="열량"
+        value={nutrition.kcal}
+        unit="kcal"
+        min={target.kcalMin}
+        max={target.kcalMax}
+        status={nutrition.kcalStatus}
+      />
+      <Gauge label="단백질" value={nutrition.proteinG} unit="g" min={target.proteinMin} status={nutrition.proteinStatus} />
     </>
   )
 }
@@ -566,10 +582,7 @@ export function MealPlanner() {
                   </tbody>
                   <tfoot>
                     <tr>
-                      <th scope="row">
-                        하루 합계
-                        <span className="meal-plan__foot-note">열량 · 단백질</span>
-                      </th>
+                      <th scope="row">하루 합계</th>
                       {week.days.map((day, index) => (
                         <td key={day.date}>
                           <span className="meal-plan__totals">

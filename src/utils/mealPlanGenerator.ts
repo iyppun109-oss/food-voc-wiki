@@ -23,8 +23,8 @@ export type PlanRow = 'rice' | 'soup' | 'main' | 'side' | 'veg' | 'kimchi'
 export const planRows: PlanRow[] = ['rice', 'soup', 'main', 'side', 'veg', 'kimchi']
 
 export const planRowLabels: Record<PlanRow, string> = {
-  rice: '밥 / 일품',
-  soup: '국 / 탕·찌개',
+  rice: '밥·일품',
+  soup: '국·찌개',
   main: '주찬',
   side: '부찬',
   veg: '무침·나물',

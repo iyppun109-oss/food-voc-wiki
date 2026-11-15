@@ -277,7 +277,8 @@
 }
 
 .meal-plan__table th:first-child {
-  width: 88px;
+  width: 80px;
+  white-space: nowrap;
   border-left: 0;
 }
 
@@ -296,12 +297,6 @@
 .meal-plan__table tfoot td {
   border-bottom: 0;
   background: var(--bg);
-}
-
-.meal-plan__foot-note {
-  display: block;
-  font-size: 0.75rem;
-  color: var(--muted);
 }
 
 .meal-plan__date {
@@ -336,11 +331,18 @@
 }
 
 .meal-plan__meta {
+  display: grid;
   font-size: 0.75rem;
   line-height: 1.4;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+
+.meal-plan__meta > span {
+  white-space: nowrap;
+}
+
+
 
 .meal-plan__badge {
   margin-left: 4px;
@@ -404,6 +406,13 @@
   font-size: 0.9375rem;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+}
+
+.meal-plan__gauge-label {
+  margin-right: 4px;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-2);
 }
 
 .meal-plan__gauge-unit {
@@ -485,6 +494,7 @@
 
 .meal-plan__card-row dt {
   color: var(--text-2);
+  white-space: nowrap;
 }
 
 .meal-plan__card-row dd {

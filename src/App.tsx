@@ -161,7 +161,7 @@ export default function App() {
             </p>
           </div>
 
-          <section className="search-section">
+          <section className="search-panel">
             <SearchBar
               value={searchQuery}
               onChange={setSearchQuery}
@@ -191,7 +191,7 @@ export default function App() {
             </section>
 
             <section
-              className="keyword-shortcuts keyword-shortcuts--secondary"
+              className="keyword-shortcuts"
               aria-label="인기 VOC"
             >
               <h3 className="keyword-shortcuts__title">인기 VOC</h3>
@@ -222,7 +222,7 @@ export default function App() {
             />
           </section>
 
-          <div className="result-summary">
+          <div className="result-summary" aria-live="polite">
             <p>{`검색 결과 ${filteredCases.length}건`}</p>
             <span>{`${activeCategoryLabel}${searchQuery ? ` · "${searchQuery}" 검색` : ''}`}</span>
           </div>
