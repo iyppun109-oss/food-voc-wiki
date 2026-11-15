@@ -4,6 +4,7 @@ import { EntryCard } from './components/EntryCard'
 import { EntryModal } from './components/EntryModal'
 import { ReportGeneratorModal } from './components/ReportGeneratorModal'
 import { MenuLab } from './components/MenuLab'
+import { MealPlanner } from './components/MealPlanner'
 import { SearchBar } from './components/SearchBar'
 import {
   categories,
@@ -42,7 +43,7 @@ function caseMatchesQuery(
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'voc' | 'recommend'>('voc')
+  const [activeTab, setActiveTab] = useState<'voc' | 'recommend' | 'plan'>('voc')
   const [selectedCaseId, setSelectedCaseId] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -103,6 +104,14 @@ export default function App() {
               aria-pressed={activeTab === 'recommend'}
             >
               메뉴 추천
+            </button>
+            <button
+              type="button"
+              className={`main-nav-tab ${activeTab === 'plan' ? 'is-active' : ''}`}
+              onClick={() => setActiveTab('plan')}
+              aria-pressed={activeTab === 'plan'}
+            >
+              식단표
             </button>
           </nav>
           {activeTab === 'voc' ? (
@@ -231,8 +240,10 @@ export default function App() {
             </div>
           )}
         </>
-        ) : (
+        ) : activeTab === 'recommend' ? (
           <MenuLab />
+        ) : (
+          <MealPlanner />
         )}
       </main>
 

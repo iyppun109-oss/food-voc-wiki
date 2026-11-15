@@ -1764,3 +1764,267 @@
   font-size: 0.8rem;
   color: #b42318;
 }
+
+/* ───────── 식단표 자동 생성 ───────── */
+.meal-plan__form {
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  align-items: end;
+}
+
+.meal-plan__wide {
+  grid-column: 1 / -1;
+}
+
+.meal-plan__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.meal-plan__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.meal-plan__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.meal-plan__warnings {
+  margin: 0;
+  padding: 0.6rem 0.8rem 0.6rem 1.6rem;
+  border-radius: var(--radius-sm);
+  background: #fff8eb;
+  border: 1px solid #f3d9a4;
+  color: #7a4b00;
+  font-size: 0.84rem;
+}
+
+.meal-plan__hint {
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+
+.meal-plan__week {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.meal-plan__week-title {
+  margin: 0.4rem 0 0;
+  color: #173b61;
+  font-size: 0.95rem;
+}
+
+.meal-plan__table-wrap {
+  overflow-x: auto;
+  border: 1px solid #d9e4f1;
+  border-radius: var(--radius-sm);
+}
+
+.meal-plan__table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.86rem;
+}
+
+.meal-plan__table th,
+.meal-plan__table td {
+  border-bottom: 1px solid #e3ebf5;
+  padding: 0.5rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.meal-plan__table thead th {
+  background: #0f2744;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.meal-plan__table thead th:first-child,
+.meal-plan__table tbody th {
+  width: 6.5rem;
+}
+
+.meal-plan__table tbody th {
+  background: #f3f7fc;
+  color: #1d3f66;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.meal-plan__table thead .meal-plan__date {
+  display: block;
+}
+
+.meal-plan__type {
+  display: inline-block;
+  margin-top: 0.2rem;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.meal-plan__type--standard {
+  background: #e8eef4;
+  color: #1e3a5f;
+}
+
+.meal-plan__type--stew {
+  background: #ffe9dc;
+  color: #8a3a0b;
+}
+
+.meal-plan__type--onedish {
+  background: #dcf7f5;
+  color: #0b6b68;
+}
+
+.meal-plan__cell {
+  display: flex;
+  gap: 0.3rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.meal-plan__name {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+.meal-plan__badge {
+  display: inline-block;
+  margin-left: 0.25rem;
+  padding: 0 0.3rem;
+  border-radius: 4px;
+  background: #dcf7f5;
+  color: #0b6b68;
+  font-size: 0.66rem;
+  font-weight: 700;
+  vertical-align: 0.1em;
+  white-space: nowrap;
+}
+
+.meal-plan__swap {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid #cad6e8;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1d3f66;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+.meal-plan__swap:hover {
+  border-color: #1fd0c6;
+  background: #effbfa;
+}
+
+.meal-plan__empty {
+  color: #9aa9bb;
+}
+
+.meal-plan__cards {
+  display: none;
+}
+
+.meal-plan__card {
+  border: 1px solid #dbe8f6;
+  border-radius: var(--radius-sm);
+  background: #f8fbff;
+  padding: 0.7rem;
+}
+
+.meal-plan__card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+  font-weight: 700;
+  color: #173b61;
+}
+
+.meal-plan__card-list {
+  margin: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.meal-plan__card-row {
+  display: grid;
+  grid-template-columns: 5.6rem 1fr;
+  gap: 0.4rem;
+  align-items: start;
+  font-size: 0.88rem;
+}
+
+.meal-plan__card-row dt {
+  color: #5a6f87;
+  font-size: 0.78rem;
+  padding-top: 0.15rem;
+}
+
+.meal-plan__card-row dd {
+  margin: 0;
+}
+
+@media (max-width: 767px) {
+  .meal-plan__table-wrap {
+    display: none;
+  }
+
+  .meal-plan__cards {
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .meal-plan__actions {
+    width: 100%;
+  }
+
+  .meal-plan__actions > button {
+    flex: 1 1 auto;
+  }
+}
+
+@media print {
+  .site-header,
+  .site-footer,
+  .meal-plan__form,
+  .meal-plan__actions,
+  .meal-plan__swap,
+  .meal-plan__hint,
+  .menu-lab__subtitle {
+    display: none !important;
+  }
+
+  .meal-plan__table-wrap {
+    display: block !important;
+    overflow: visible;
+  }
+
+  .meal-plan__cards {
+    display: none !important;
+  }
+
+  .meal-plan__week {
+    break-inside: avoid;
+  }
+}
+
+.meal-plan__badge--extra {
+  background: #eef1f5;
+  color: #5a6f87;
+}
