@@ -97,6 +97,7 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
   const [isDateTimePickerOpen, setIsDateTimePickerOpen] = useState(false)
   const [tempDate, setTempDate] = useState('')
   const [tempTime, setTempTime] = useState('')
+  const [copyError, setCopyError] = useState<ReportType | null>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
 
   const normalizedKeyword = useMemo(() => normalizeText(formState.keyword), [formState.keyword])
@@ -240,12 +241,19 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
 
   const handleCopy = async (type: ReportType, text: string) => {
     if (!text) return
-    await navigator.clipboard.writeText(text)
-    setCopiedState((prev) => ({ ...prev, [type]: true }))
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopyError(null)
+      setCopiedState((prev) => ({ ...prev, [type]: true }))
+    } catch {
+      setCopyError(type)
+    }
   }
 
   const handleEditableChange = (type: ReportType, value: string) => {
-    setEditableReport((prev) => ({ ...prev, [type]: value }))
+    const reportField = reportTextFieldByType[type]
+    setEditableReport((prev) => ({ ...prev, [reportField]: value }))
+    setCopyError(null)
     setCopiedState((prev) => ({ ...prev, [type]: false }))
     setSafetyChecks((prev) => ({
       ...prev,
@@ -354,13 +362,13 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
               />
             </label>
 
-            <label className="report-form__field">
-              <span>발생 일시</span>
+            <div className="report-form__field">
+              <span id="report-occurred-at-label">발생 일시</span>
               <button
                 type="button"
                 className="report-form__datetime-trigger"
                 onClick={openDateTimePicker}
-                onFocus={openDateTimePicker}
+                aria-labelledby="report-occurred-at-label"
                 aria-haspopup="dialog"
                 aria-expanded={isDateTimePickerOpen}
               >
@@ -388,7 +396,7 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
                   </div>
                 </section>
               )}
-            </label>
+            </div>
 
             <label className="report-form__field">
               <span>고객 정보</span>
@@ -421,8 +429,8 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
               />
             </label>
 
-            <label className="report-form__field">
-              <span>고객 반응</span>
+            <fieldset className="report-form__field report-form__fieldset">
+              <legend>고객 반응</legend>
               <div className="report-form__options-grid">
                 {customerReactionOptions.map((reaction) => (
                   <label className="report-form__option" key={reaction}>
@@ -435,10 +443,10 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
                   </label>
                 ))}
               </div>
-            </label>
+            </fieldset>
 
-            <label className="report-form__field">
-              <span>현장 조치</span>
+            <fieldset className="report-form__field report-form__fieldset">
+              <legend>현장 조치 (실제로 완료한 것만 선택)</legend>
               <div className="report-form__options-grid">
                 {onsiteActionOptions.map((action) => (
                   <label className="report-form__option" key={action}>
@@ -451,7 +459,7 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
                   </label>
                 ))}
               </div>
-            </label>
+            </fieldset>
 
             <label className="report-form__field">
               <span>대응 강도</span>
@@ -529,6 +537,11 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
           {hasResult && (
             <section className="report-result">
               <h3 className="report-result__title">생성 결과</h3>
+              {copyError && (
+                <p className="report-copy-error" role="alert">
+                  {reportTypeLabels[copyError]} 복사에 실패했습니다. 내용을 직접 선택해 복사해 주세요.
+                </p>
+              )}
               <div className="report-result__cards">
                 <article className="report-result-card">
                   <h4 className="report-result-card__title">1. 고객용 대응 메시지</h4>

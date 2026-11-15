@@ -22,6 +22,7 @@ const initialForm: MenuLabInput = {
 }
 
 function listSection(title: string, lines: string[], maxLines = 3) {
+  if (lines.length === 0) return null
   return (
     <section className="menu-lab-result__section">
       <h5>{title}</h5>
@@ -94,7 +95,7 @@ export function MenuLab() {
   return (
     <section className="menu-lab">
       <h2 className="menu-lab__title">Menu Lab</h2>
-      <p className="menu-lab__subtitle">상황, 단가, 고객 VOC 이슈를 함께 반영해 메뉴를 추천합니다.</p>
+      <p className="menu-lab__subtitle">식사 상황과 고객 VOC 이슈를 반영해 메뉴를 추천합니다. 식단가는 참고 조건이며, 실제 식재료 원가는 계산하지 않습니다.</p>
 
       <form className="menu-lab__form" onSubmit={handleSubmit}>
         <label className="menu-lab__field">

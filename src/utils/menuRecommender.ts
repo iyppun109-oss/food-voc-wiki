@@ -11,6 +11,7 @@ import { menuSideItems } from '../data/menuSideItems'
 import { menuSoupItems } from '../data/menuSoupItems'
 import { menuVocRiskRuleMap, type MenuVocRiskRule } from '../data/menuVocRiskRules'
 import { menuScenarioRules, scenarioByAvoidRisk } from '../data/menuScenarioRules'
+import { attachJosa } from './koreanJosa'
 
 export type AvoidIssue = VocRisk | '없음'
 
@@ -203,31 +204,68 @@ function sideGroupForName(sideName: string): string | undefined {
   )?.key
 }
 
-function selectSides(mainCategory: string, risks: VocRisk[]) {
+/**
+ * 메뉴명에서 주재료를 추정하는 토큰. 메인·국·찬 사이 주재료 중복(예: 두부김치 정식 + 두부조림)을 막습니다.
+ * Phase 3에서 메뉴 DB에 재료 속성을 추가하면 이 목록은 대체됩니다.
+ */
+const ingredientTokens = [
+  '감자',
+  '고구마',
+  '두부',
+  '계란',
+  '김치',
+  '오징어',
+  '어묵',
+  '버섯',
+  '콩나물',
+  '멸치',
+  '새우',
+  '오이',
+  '미역',
+  '가지',
+  '연근',
+  '마늘쫑',
+  '묵',
+]
+
+function tokensOf(name: string) {
+  return ingredientTokens.filter((token) => name.includes(token))
+}
+
+function selectSides(menu: MainMenuItem, risks: VocRisk[], usedElsewhere: Set<string>, soupName: string) {
+  const blockedTokens = new Set([...tokensOf(menu.name), ...tokensOf(soupName)])
   const candidates = menuSideItems
     .map((side: SideMenuItem) => {
       let score = 0
-      if (side.fitWith.includes(mainCategory)) score += 2
+      if (menu.bestSides.includes(side.name)) score += 4
+      if (menu.avoidSides.includes(side.name)) score -= 10
+      if (side.fitWith.includes(menu.category)) score += 1
       if (!side.risks.some((risk) => risks.includes(risk))) score += 2
       if (risks.includes('염도') && side.roles.includes('담백형')) score += 1
       if (risks.includes('느끼함') && side.roles.includes('기름 관리')) score += 1
+      if (usedElsewhere.has(side.name)) score -= 3
       return { side, score }
     })
     .sort((a, b) => b.score - a.score || a.side.name.localeCompare(b.side.name))
     .map((entry) => entry.side)
 
   const selected: SideMenuItem[] = []
+  const selectedNames = new Set<string>()
   const groupCount = new Map<string, number>()
 
   for (const side of candidates) {
+    if (selectedNames.has(side.name)) continue
+    const sideTokens = tokensOf(side.name)
+    if (sideTokens.some((token) => blockedTokens.has(token))) continue
+
     const groupKey = sideGroupForName(side.name)
     const limit = sideSimilarityGroups.find((group) => group.key === groupKey)?.limit ?? 2
     const used = groupCount.get(groupKey ?? side.name) ?? 0
-
     if (used >= limit) continue
 
-    const nextUsed = used + 1
-    groupCount.set(groupKey ?? side.name, nextUsed)
+    groupCount.set(groupKey ?? side.name, used + 1)
+    sideTokens.forEach((token) => blockedTokens.add(token))
+    selectedNames.add(side.name)
     selected.push(side)
 
     if (selected.length >= 3) break
@@ -236,11 +274,15 @@ function selectSides(mainCategory: string, risks: VocRisk[]) {
   return pickTop(selected, 3)
 }
 
-function selectSoups(mainCategory: string, risks: VocRisk[]) {
-  const candidates = menuSoupItems
+function selectSoups(menu: MainMenuItem, risks: VocRisk[], usedElsewhere: Set<string>) {
+  const mainTokens = new Set(tokensOf(menu.name))
+  const compatible = menuSoupItems.filter((soup) => !tokensOf(soup.name).some((token) => mainTokens.has(token)))
+  // 다른 추천안에서 이미 쓴 국은 대안이 있는 한 제외해 3개 안의 국이 겹치지 않게 합니다.
+  const unused = compatible.filter((soup) => !usedElsewhere.has(soup.name))
+  const candidates = (unused.length > 0 ? unused : compatible)
     .map((soup) => {
       let score = 0
-      if (soup.fitWith.includes(mainCategory)) score += 2
+      if (menu.bestSoups.includes(soup.name)) score += 4
       if (!soup.risks.some((risk) => risks.includes(risk))) score += 2
       if (risks.includes('염도') && soup.roles.includes('담백')) score += 1
       return { soup, score }
@@ -286,20 +328,25 @@ function buildComposition(menu: MainMenuItem, sideNames: string[], soupName: str
   }
 }
 
-function buildAlternatives(mainItems: MainMenuItem[], selectedName: string) {
-  const filtered = mainItems.filter((menu) => menu.name !== selectedName)
-  const names = dedupeText(filtered.map((menu) => menu.name))
-  return pickTop(names, 2)
+/** 대체 메뉴: 이미 추천안으로 제시한 메인은 제외합니다. */
+function buildAlternatives(mainItems: MainMenuItem[], excludedNames: Set<string>, offset: number) {
+  const names = dedupeText(mainItems.filter((menu) => !excludedNames.has(menu.name)).map((menu) => menu.name))
+  return names.slice(offset * 2, offset * 2 + 2)
 }
 
-function buildReason(menu: MainMenuItem, scenarioSummary: string, risks: VocRisk[]) {
-  const strength = menu.strengths[0] ?? '균형 있는 구성입니다.'
+function buildReason(menu: MainMenuItem, risks: VocRisk[]) {
+  const strengths = menu.strengths.length > 0 ? menu.strengths.join(', ') : '구성이 무난함'
   const riskReason = risks
     .map((risk) => menuVocRiskRuleMap[risk]?.description)
     .filter((value): value is string => typeof value === 'string')
-  const line = scenarioSummary || '상황 맞춤형 운영 조합으로 안정적으로 구성 가능합니다.'
-  const reason = `${menu.name}은 ${strength} ${line} ${pickTop(riskReason, 1)[0] ?? ''}`
-  return dedupeText([reason], 1)[0] ?? reason
+  const avoided = risks.filter((risk) => !menu.risks.includes(risk))
+  const riskLine =
+    avoided.length > 0
+      ? `선택하신 VOC 중 ${avoided.join(', ')} 위험이 상대적으로 낮은 메뉴입니다.`
+      : (riskReason[0] ?? '')
+  return [`${attachJosa(menu.name, '은/는')} 다음 강점이 있어 추천합니다: ${strengths}.`, riskLine]
+    .filter(Boolean)
+    .join(' ')
 }
 
 function dedupeMenus(items: MainMenuItem[]) {
@@ -329,9 +376,16 @@ export function recommendMenus(input: MenuLabInput): MenuRecommendationResult {
     })
     .map((entry) => entry.menu)
 
-  const recommendations = ranked.slice(0, 3).map((menu, index) => {
-    const selectedSides = selectSides(menu.category, avoidRisks)
-    const selectedSoup = selectSoups(menu.category, avoidRisks)
+  const topMenus = ranked.slice(0, 3)
+  const recommendedNames = new Set(topMenus.map((menu) => menu.name))
+  const usedSides = new Set<string>()
+  const usedSoups = new Set<string>()
+
+  const recommendations = topMenus.map((menu, index) => {
+    const selectedSoup = selectSoups(menu, avoidRisks, usedSoups)
+    const selectedSides = selectSides(menu, avoidRisks, usedSides, selectedSoup.name)
+    selectedSides.forEach((side) => usedSides.add(side.name))
+    usedSoups.add(selectedSoup.name)
     const preventionPoints = getRiskPreventionLines(avoidRisks)
     const upgradeIdeas = getUpgradeIdeas(menu, avoidRisks)
     const operationNotes = getOperationLines(menu, avoidRisks)
@@ -344,11 +398,11 @@ export function recommendMenus(input: MenuLabInput): MenuRecommendationResult {
       menuName: menu.name,
       category: menu.category,
       highlights: scenarioSummary,
-      reason: buildReason(menu, scenarioText, avoidRisks),
+      reason: buildReason(menu, avoidRisks),
       composition: buildComposition(menu, selectedSides.map((item) => item.name), selectedSoup?.name ?? ''),
       preventionPoints,
       upgradeIdeas,
-      alternatives: buildAlternatives(ranked, menu.name),
+      alternatives: buildAlternatives(ranked, recommendedNames, index),
       operationNotes,
       scenario: scenarioText,
     }

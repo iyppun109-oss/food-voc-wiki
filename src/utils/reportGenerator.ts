@@ -1,5 +1,6 @@
 import { detectReportCategory, QUALITY_COOKING_STATUS_KEYWORDS } from '../data/reportSentenceTemplates'
 import { type VocCase } from '../data/vocCases'
+import { attachJosa } from './koreanJosa'
 
 export type CustomerReaction =
   | '괜찮다고 함'
@@ -76,22 +77,10 @@ const fallbackValues = {
   occurredAt: '발생 일시 미입력',
 }
 
-const safetyKeywords = [
-  '치아',
-  '치아 파절',
-  '치아 파손',
-  '치아 손상',
-  '딱딱한 이물',
-  '돌 씹음',
-  '뼈 씹음',
-  '이물 씹음',
-  '통증',
-]
-
-const detailConfig: Record<ReportDetailLevel, { incidentCount: number; actionCount: number }> = {
-  짧게: { incidentCount: 2, actionCount: 3 },
-  보통: { incidentCount: 3, actionCount: 3 },
-  자세히: { incidentCount: 4, actionCount: 4 },
+const detailConfig: Record<ReportDetailLevel, { actionCount: number }> = {
+  짧게: { actionCount: 3 },
+  보통: { actionCount: 4 },
+  자세히: { actionCount: 5 },
 }
 
 const safetyDisplayLabel = '안전사고 / 치아 파절 의심'
@@ -117,91 +106,91 @@ type CategoryType =
 
 const incidentTemplateByCategory: Record<CategoryType, string[]> = {
   머리카락: [
-    '{{menu}} 이용 중 머리카락 이물 의심 VOC가 접수됨.',
+    '{{menu}}에서 머리카락이 발견되었다는 고객 제보가 접수됨.',
     '현장에서 배식 직전 표면·고정 상태를 확인함.',
     '고객 불편 내용은 조리·배식 단계와 연계해 접수됨.',
     '관련 메뉴의 동일 조리분 확인이 필요함.',
     '현장 안내 요청이 발생해 확인을 진행 중임.',
   ],
   벌레: [
-    '{{menu}} 제공 과정에서 벌레 의심 제보가 접수됨.',
+    '{{menu}}에서 벌레가 발견되었다는 고객 제보가 접수됨.',
     '원물 세척·보관 상태와 전처리 결과를 현장에서 확인함.',
     '해당 시간대 작업 구간에서 접근차단 여부를 점검함.',
     '동일 조리분 확인이 필요하다는 요청이 있어 조치함.',
     '해당 건은 즉시 재점검 대상으로 분류함.',
   ],
   '비닐/플라스틱': [
-    '{{menu}} 이용 중 포장재 잔류 의심 VOC가 접수됨.',
+    '{{menu}}에서 비닐·플라스틱 이물이 발견되었다는 고객 제보가 접수됨.',
     '포장재 제거와 조립 단계의 연결이 적절했는지 확인함.',
     '현장에서 해당 메뉴 처리 이력 및 제공 상태를 확인함.',
     '동일 메뉴 회수 가능성이 있어 현물 점검을 진행함.',
     '조리 기준 대비 조립 절차 재확인이 필요함.',
   ],
   '뼈/가시': [
-    '고객 제보로 {{menu}}에서 뼈·가시 유사 잔류가 제기됨.',
+    '{{menu}}에서 뼈·가시가 나왔다는 고객 제보가 접수됨.',
     '원재료 선별 단계와 손질 단계 연결을 점검함.',
     '동일 조리분 및 제공 상태를 즉시 확인함.',
     '고객 안내가 필요해 응대 절차를 진행함.',
     '재확인 대상 메뉴가 있어 후속 점검을 준비함.',
   ],
   '이물 혼입': [
-    '{{menu}} 이용 중 이물 혼입 의심 VOC가 접수됨.',
+    '{{menu}}에서 이물이 발견되었다는 고객 제보가 접수됨.',
     '해당 건은 조리·배식 연계 구간 확인 대상으로 분류됨.',
     '현장에서 표면 상태와 잔류 이물 후보를 검토함.',
     '고객 불편 내용 접수 건으로 즉시 재점검을 시작함.',
     '동일 조리분 재확인 결과를 수집함.',
   ],
   품절: [
-    '{{menu}}가 이용 시간 중 조기 품절되어 이용 불편이 접수됨.',
+    '{{menu:이/가}} 이용 시간 중 조기 소진되어 고객 불편 의견이 접수됨.',
     '수요 변동 및 차수별 준비량 미달 여부를 확인함.',
     '고객 안내 후 대체 메뉴 제공이 논의됨.',
     '현장에서 수량 집계와 추가 조리 가능성을 점검함.',
     '추가 확인 대상 수량 항목을 즉시 분리함.',
   ],
   염도: [
-    '{{menu}} 맛 상태에서 짜기/싱거움 제보가 접수됨.',
+    '{{menu}}의 간이 맞지 않다는 고객 의견이 접수됨.',
     '기준 레시피 대비 간 맞춤 편차가 우려되어 확인함.',
     '현장 시식 기준표 점검이 필요해 조치함.',
     '고객 불편 접수 건으로 염도 관련 로그를 확인함.',
     '동일 조리분의 중간 조리점검 이력을 함께 검토함.',
   ],
   품질: [
-    '{{menu}} 이용 중 일반 품질 이슈 제보가 접수됨.',
+    '{{menu}}의 품질에 대한 고객 의견이 접수됨.',
     '현장에서는 조리 기준 및 제공 상태를 확인함.',
     '고객 VOC 내용은 메뉴 상태 점검 대상으로 처리됨.',
     '동일 조리분과 대체 가능성을 함께 검토함.',
     '추가 확인 후 원인 후보를 정리할 예정임.',
   ],
   '양 부족': [
-    '{{menu}} 이용 중 제공량 부족 VOC가 접수됨.',
+    '{{menu}}의 제공량이 부족하다는 고객 의견이 접수됨.',
     '기준 접시량과 실제 배식량 편차를 확인함.',
     '요청 건은 수요 집중 구간과 연계해 점검함.',
     '추가 제공 여부와 대응 이력도 함께 정리함.',
     '고객 안내 진행 후 조치 범위를 결정함.',
   ],
   '위생 불만': [
-    '{{menu}} 이용 중 위생 상태 불편 제보가 접수됨.',
+    '식당 위생 상태에 대한 고객 불편 의견이 접수됨.',
     '테이블·집기·배식대 청결 상태를 현장 확인함.',
     '고객 반응과 현장 정리 상태를 함께 점검함.',
     '위생 점검 주기 준수 여부를 확인함.',
     '추가 확인 사항은 보고서에 반영함.',
   ],
   '직원 응대': [
-    '고객 응대 과정에서 VOC가 접수됨.',
+    '직원 응대에 대한 고객 불편 의견이 접수됨.',
     '안내 방식과 응대 속도에 대한 불편이 제기됨.',
     '현장에서 안내 이력 및 전달 내용을 확인함.',
     '고객 확인사항을 별도 정리해 재접속 필요 여부를 판단함.',
     '추가 안내 및 이관 기준을 점검함.',
   ],
   '식중독 의심': [
-    '식사 후 이상 반응 제보가 접수되어 긴급 확인 대상이 됨.',
+    '식사 후 이상 증상이 있다는 고객 제보가 접수되어 긴급 확인 대상으로 분류함.',
     '섭취 메뉴, 잔식, 상태 확인 건으로 조치가 시작됨.',
     '고객 상태 확인 후 안전 대응 채널로 이관함.',
     '보관·조리 이력과 보존 조건 점검이 필요함.',
     '현재 원인 단정은 보류하고 원인 후보를 추적함.',
   ],
   안전사고: [
-    '식사 중 딱딱한 물질 씹은 후 치아 불편 호소 건이 접수됨.',
+    '식사 중 딱딱한 물질을 씹은 후 치아 불편을 호소한 건이 접수됨.',
     '고객 상태 확인이 우선 과제로 접수됨.',
     '제공 메뉴 및 잔식 회수와 증빙 정리를 진행함.',
     '원재료·전처리·조리·배식 공정 점검이 필요함.',
@@ -213,93 +202,6 @@ const incidentTemplateByCategory: Record<CategoryType, string[]> = {
     '고객 불편 내용과 현장 확인 건을 분리해 점검함.',
     '추가 점검 후 원인 후보를 정리함.',
     '재발 방지 필요 항목을 정리함.',
-  ],
-}
-
-const actionTemplateByCategory: Record<CategoryType, string[]> = {
-  머리카락: [
-    '조리·배식 구간에서 모자/복장 위생 상태를 즉시 점검함.',
-    '해당 조리분 배식 전 최종 외관 확인을 강화함.',
-    '동일 조리분 교차 확인을 진행함.',
-    '필요시 메뉴 회수 및 재배식 기준으로 처리함.',
-  ],
-  벌레: [
-    '원물 세척, 선별, 소독 구간을 즉시 재확인함.',
-    '저장·운반·출고 동선을 점검해 이물 유입 취약점을 보완함.',
-    '잎채소류 잎 사이 확인 결과를 재점검함.',
-    '현장 사진으로 확인 내역을 보완함.',
-  ],
-  '비닐/플라스틱': [
-    '포장재 제거 작업을 반복 점검함.',
-    '전처리 후 조립 단계 재확인으로 중복 검수를 적용함.',
-    '제공 전 최종 검수 항목을 추가 확인함.',
-    '유사 메뉴도 함께 점검해 재현 가능성을 낮춤함.',
-  ],
-  '뼈/가시': [
-    '원재료 특성 기준을 기준대로 재안내하고 확인함.',
-    '전처리 선별 과정을 재점검함.',
-    '조리 후 해당 메뉴 및 동일 조리분 육안 확인을 실시함.',
-    '고객 안내 필요 여부를 즉시 판단함.',
-  ],
-  '이물 혼입': [
-    '조리·배식 전환 구간을 중심으로 즉시 재점검함.',
-    '같은 조리분 출고 건을 추가로 추적함.',
-    '작업 환경 정리 상태를 보강하고 이물 후보를 제거함.',
-    '현장 확인 기록을 정리해 공유함.',
-  ],
-  품절: [
-    '차수별 준비량과 수요 신호를 함께 확인함.',
-    '대체 메뉴 제공 가능 여부와 공지 내용을 정리함.',
-    '추가 조리 기준 적용 여부를 검토함.',
-    '동일 시간대 수요 집중 징후를 별도로 분리함.',
-  ],
-  염도: [
-    '기준 레시피와 배합량 기록을 비교함.',
-    '중간 조리 점검 구간에서 염도 편차를 점검함.',
-    '개인 기호 차이 가능성을 반영해 안내 범위를 조정함.',
-    '샘플 재측정 결과와 이력 등록을 병행함.',
-  ],
-  품질: [
-    '메뉴 제공 상태와 조리 기준 준수 여부를 확인함.',
-    '동일 조리분의 기준 편차 가능성을 점검함.',
-    '원재료와 조리 공정 이력을 함께 검토함.',
-    '재발 방지 항목을 다음 회차 기준에 반영함.',
-  ],
-  '양 부족': [
-    '기준 제공량 산정표와 실제 배식량 편차를 확인함.',
-    '배식량 편차 항목을 조리반별로 정렬함.',
-    '메뉴 구성 균형과 추가 제공 가능성을 점검함.',
-    '동일 메뉴 반복 주문 구간을 재분석함.',
-  ],
-  '위생 불만': [
-    '테이블·집기 청결 상태를 즉시 정리하고 사진으로 기록함.',
-    '배식대 청결 및 현장 정리 동선을 재배치함.',
-    '점검 주기를 임시 강화하고 확인자 서명을 확보함.',
-    '고객 안내 메시지와 청결 개선 일정을 정리함.',
-  ],
-  '직원 응대': [
-    '응대 표현과 안내 방식이 적절했는지 재정리함.',
-    '고객 불편 청취 내용과 전달 채널을 점검함.',
-    '직원 교육 항목에 해당 케이스를 반영함.',
-    '향후 동일 유사 문의 처리 기준을 정비함.',
-  ],
-  '식중독 의심': [
-    '고객 상태 확인과 보건 조치 필요 여부를 점검함.',
-    '섭취 메뉴와 잔식, 보존·위생 기록을 검토함.',
-    '동일 증상 발생 여부를 확인함.',
-    '즉시 보고 필요성이 높아 관련망에 공유함.',
-  ],
-  안전사고: [
-    '고객 상태 확인을 우선 진행함.',
-    '제공 메뉴 및 잔식을 회수해 보존함.',
-    '현물 증빙과 사진 기록을 정리함.',
-    '원재료·전처리·조리·배식 점검을 연쇄 확인함.',
-  ],
-  기타: [
-    '사례 성격에 맞는 우선 조치 항목을 분리함.',
-    '기본 점검 범위를 재확인하고 처리 일정을 잡음.',
-    '현장 확인 결과를 기록해 후속 조치를 정리함.',
-    '관련 부서 공유 범위를 점검함.',
   ],
 }
 
@@ -320,7 +222,7 @@ const causeTemplateByCategory: Record<CategoryType, string[]> = {
     '제공 전 최종 검수에서 항목 누락이 있었을 가능성이 있음.',
   ],
   '뼈/가시': [
-    '원재료 선별 강도가 약해 잔류 가능성이 있었을 가능성이 있음.',
+    '원재료 선별 과정에서 뼈·가시가 남았을 가능성이 있음.',
     '조리 후 제거 확인 이력이 일부 미흡했을 가능성이 있음.',
     '동일 조리분 반복 투입 시 이탈 항목 점검이 약했을 가능성이 있음.',
   ],
@@ -451,7 +353,7 @@ const preventionTemplateByCategory: Record<CategoryType, string[]> = {
 
 const customerResponseCoreByCategory: Record<CategoryType, string[]> = {
   머리카락: [
-    '해당 메뉴의 조리·배식 과정이 다시 확인될 수 있도록 점검하겠습니다.',
+    '해당 메뉴의 조리·배식 과정과 위생모 착용 상태를 다시 점검하겠습니다.',
     '현장에서 말씀 주신 내용은 내부 기준에 맞춰 재검토하겠습니다.',
     '동일한 불편이 반복되지 않도록 확인 절차를 강화하겠습니다.',
   ],
@@ -472,16 +374,16 @@ const customerResponseCoreByCategory: Record<CategoryType, string[]> = {
   ],
   '이물 혼입': [
     '해당 메뉴의 조리·배식 과정을 다시 확인하겠습니다.',
-    '말씀하신 이물 우려 내용을 기준 기준으로 반영해 점검하겠습니다.',
+    '말씀하신 이물 우려 내용을 내부 기준에 따라 점검하겠습니다.',
     '동일한 불편이 반복되지 않도록 확인을 강화하겠습니다.',
   ],
   품절: [
-    '해당 메뉴 수급 상황과 대체 안내 내용을 다시 정리하겠습니다.',
+    '해당 메뉴의 준비 수량과 소진 시 대체 안내 기준을 다시 점검하겠습니다.',
     '현장에서 말씀 주신 내용을 기준으로 수요 반영을 점검하겠습니다.',
     '유사 사례가 줄어들도록 운영 체계를 보강하겠습니다.',
   ],
   염도: [
-    '해당 메뉴의 간 조정 이력을 기반으로 조리 기준을 다시 점검하겠습니다.',
+    '해당 메뉴의 표준 레시피와 조리 중 간 확인 절차를 다시 점검하겠습니다.',
     '말씀하신 맛 편차는 조리 과정으로 재확인하겠습니다.',
     '동일한 불편이 반복되지 않도록 조정 체계를 강화하겠습니다.',
   ],
@@ -501,7 +403,7 @@ const customerResponseCoreByCategory: Record<CategoryType, string[]> = {
     '동일한 불편이 반복되지 않도록 운영 기준을 강화하겠습니다.',
   ],
   '직원 응대': [
-    '안내 절차와 전달 내용을 기준에 맞게 다시 점검하겠습니다.',
+    '당시 응대 상황을 확인하고, 안내 방식과 응대 태도를 다시 점검하겠습니다.',
     '고객 응대 과정은 다시 정리해 동일한 이슈를 방지하겠습니다.',
     '동일한 불편이 반복되지 않도록 교육과 절차를 강화하겠습니다.',
   ],
@@ -524,117 +426,170 @@ const customerResponseCoreByCategory: Record<CategoryType, string[]> = {
 
 const customerClosingLine = '소중한 의견 감사합니다.'
 
-const clientCoreByCategory: Record<CategoryType, string[]> = {
-  머리카락: [
-    '위생모 착용 상태, 조리복·개인위생, 배식 전 최종 검수 상태를 함께 점검하고 있습니다.',
-    '동일 조리분의 재생산·배식 상태도 확인하여 조치 범위를 정리 중입니다.',
-  ],
-  벌레: [
-    '원물 세척, 소독·선별, 잎채소류 잎 사이 확인을 중심으로 점검하고 있습니다.',
-    '보관 상태와 작업 동선을 함께 확인하여 취약 구간을 정리 중입니다.',
-  ],
-  '비닐/플라스틱': [
-    '포장재 제거, 전처리 확인, 조립 과정 점검을 함께 진행하고 있습니다.',
-    '제공 전 최종 검수 항목을 재점검하고 공유 절차를 정리 중입니다.',
-  ],
-  '뼈/가시': [
-    '원재료 특성, 전처리 선별, 조리 후 확인 항목을 검토하고 있습니다.',
-    '고객 안내 필요성을 함께 확인해 조치 방안을 정리 중입니다.',
-  ],
-  '이물 혼입': [
-    '이물 혼입 가능 구간의 수거·배식 이력과 관련 공정을 점검하고 있습니다.',
-    '추가로 동일 조리분의 선별·검수 기록을 확인하고 있습니다.',
-  ],
-  품절: [
-    '예상 식수, 차수별 준비량, 특정 시간대 수요를 함께 확인하고 있습니다.',
-    '추가 조리·대체 제공 기준을 운영에서 적용할 수 있는지 검토하고 있습니다.',
-  ],
-  염도: [
-    '기준 레시피, 염도계 점검, 중간 조리 점검 결과를 함께 정리하고 있습니다.',
-    '개인 기호차이 가능성을 반영해 조정 방안을 점검하고 있습니다.',
-  ],
-  품질: [
-    '조리 상태와 품질 항목을 기준으로 조리 조건을 다시 점검하고 있습니다.',
-    '관련 메뉴의 동일 조리분 상태도 함께 확인하여 보완 방향을 정리 중입니다.',
-  ],
-  '양 부족': [
-    '배식량 편차, 기준 제공량, 추가 제공 가능 여부를 중심으로 점검하고 있습니다.',
-    '메뉴 구성 균형과 요청 처리 결과를 반영해 개선안을 정리 중입니다.',
-  ],
-  '위생 불만': [
-    '테이블·집기 위생, 배식대 청결, 현장 정리 상태를 점검하고 있습니다.',
-    '점검 주기 재설계와 운영 반영 항목을 정리하고 있습니다.',
-  ],
-  '직원 응대': [
-    '응대 표현, 안내 방식, 고객 불편 청취 절차를 점검하고 있습니다.',
-    '직원 재교육 범위와 안내 표준을 정리하고 있습니다.',
-  ],
+/** 고객사 보고용: 원인 확인 계획 (예정형, 원인 단정 없음) */
+const clientCheckByCategory: Record<CategoryType, string> = {
+  머리카락: '원인 확인을 위해 위생모·작업복 착용 상태와 조리·배식 전 최종 확인 절차, 동일 조리분 상태를 점검하겠습니다.',
+  벌레: '원인 확인을 위해 원물 세척·선별 과정과 잎채소류 잎 사이 확인 여부, 식재료 보관 상태 등 전처리 공정을 점검하겠습니다.',
+  '비닐/플라스틱': '원인 확인을 위해 포장재 제거 여부와 전처리 검수, 조립 공정, 제공 전 최종 확인 절차를 점검하겠습니다.',
+  '뼈/가시': '원인 확인을 위해 원재료 특성과 전처리 선별, 조리 후 확인 절차를 점검하겠습니다.',
+  '이물 혼입': '원인 확인을 위해 이물의 성상과 유입 가능 공정, 동일 조리분 상태를 확인하겠습니다.',
+  품절: '원인 확인을 위해 예상 식수와 실제 이용량, 차수별 준비량을 비교하겠습니다.',
+  염도: '원인 확인을 위해 표준 레시피와 기준 염도, 조리 중간 점검 기록, 국물·소스의 편차를 점검하겠습니다.',
+  품질: '원인 확인을 위해 해당 메뉴의 조리 기준 준수 여부와 제공 상태를 점검하겠습니다.',
+  '양 부족': '원인 확인을 위해 기준 제공량과 실제 배식량, 배식 담당자별 편차를 확인하겠습니다.',
+  '위생 불만': '지적해 주신 구역의 청결 상태와 점검 주기 준수 여부를 확인하겠습니다.',
+  '직원 응대': '당시 응대 상황과 안내 내용을 확인하고, 고객님의 의견을 바탕으로 응대 방식을 점검하겠습니다.',
+  '식중독 의심':
+    '동일 메뉴 섭취자 중 유사 증상 발생 여부와 보관·조리 온도 기록을 확인하겠으며, 원인은 확인 결과에 따라 판단하겠습니다.',
+  안전사고: '원재료 특성과 전처리 선별, 조리·배식 과정을 점검하겠으며, 확인 전까지 원인을 단정하지 않겠습니다.',
+  기타: '접수 내용의 사실관계를 확인하고 관련 운영 과정을 점검하겠습니다.',
+}
+
+/** 고객사 보고용: 재발방지 (예정형) */
+const clientPreventionByCategory: Record<CategoryType, string> = {
+  머리카락: '향후 위생모 착용 점검과 배식 전 최종 확인을 강화해 동일 사례를 예방하겠습니다.',
+  벌레: '향후 잎채소류 세척·선별 기준을 재교육하고 전처리 단계 확인을 강화하겠습니다.',
+  '비닐/플라스틱': '향후 포장재 제거 후 확인 절차와 제공 전 최종 점검을 강화하겠습니다.',
+  '뼈/가시': '향후 원재료 전처리 선별과 조리 후 확인을 강화하고, 필요 시 메뉴 안내 문구를 보완하겠습니다.',
+  '이물 혼입': '향후 공정별 이물 점검과 제공 전 최종 확인을 강화하겠습니다.',
+  품절: '향후 이용 데이터를 반영해 차수별 준비량을 조정하고, 소진 시 추가 조리·대체 메뉴 기준을 보완하겠습니다.',
+  염도: '향후 표준 레시피 준수와 조리 중간 염도 점검을 강화하겠습니다.',
+  품질: '향후 조리 기준 준수 여부와 제공 전 품질 확인을 강화하겠습니다.',
+  '양 부족': '향후 기준 제공량에 맞춘 배식 도구 사용과 배식 편차 점검을 강화하겠습니다.',
+  '위생 불만': '향후 식사 시간대 청결 점검 주기를 보완하고 점검 기록을 관리하겠습니다.',
+  '직원 응대': '향후 고객 응대 교육을 실시하고 현장 관리를 강화하겠습니다.',
+  '식중독 의심': '확인 결과에 따라 필요한 개선 조치를 마련하고, 관련 지침에 따른 후속 절차를 이행하겠습니다.',
+  안전사고: '확인 결과에 따라 원재료 선별과 배식 전 최종 검수 절차를 보완하겠습니다.',
+  기타: '확인 결과에 따라 필요한 개선 조치를 마련하겠습니다.',
+}
+
+/** 고객사 보고용 유형 표현 */
+const clientIssueLabelByCategory: Record<CategoryType, string> = {
+  머리카락: '머리카락 이물',
+  벌레: '벌레 이물',
+  '비닐/플라스틱': '비닐·플라스틱 이물',
+  '뼈/가시': '뼈·가시 혼입',
+  '이물 혼입': '이물 혼입',
+  품절: '조기 품절',
+  염도: '염도(간)',
+  품질: '음식 품질',
+  '양 부족': '제공량 부족',
+  '위생 불만': '위생 상태',
+  '직원 응대': '직원 응대',
+  '식중독 의심': '식사 후 이상 증상',
+  안전사고: '식사 중 치아 불편',
+  기타: '이용 불편',
+}
+
+const menuRelatedCategories: CategoryType[] = [
+  '머리카락',
+  '벌레',
+  '비닐/플라스틱',
+  '뼈/가시',
+  '이물 혼입',
+  '품절',
+  '염도',
+  '품질',
+  '양 부족',
+]
+
+/** 고객용: 사과 문장에 들어갈 상황 표현. {t}는 메뉴명(없으면 '음식') */
+const customerIssueByCategory: Record<CategoryType, string> = {
+  머리카락: '제공된 {t}에서 머리카락이 발견되어',
+  벌레: '제공된 {t}에서 벌레가 발견되어',
+  '비닐/플라스틱': '제공된 {t}에서 비닐 등 이물이 발견되어',
+  '뼈/가시': '제공된 {t}에서 뼈나 가시가 나와',
+  '이물 혼입': '제공된 {t}에서 이물이 발견되어',
+  품절: '{t:이/가} 일찍 소진되어',
+  염도: '{t}의 간이 맞지 않아',
+  품질: '{t}의 품질이 기대에 미치지 못해',
+  '양 부족': '{t}의 제공량이 충분하지 않아',
+  '위생 불만': '식당 위생 상태로 인해',
+  '직원 응대': '직원 응대 과정에서',
+  '식중독 의심': '',
+  안전사고: '',
+  기타: '{t} 이용 과정에서',
+}
+
+type InternalReactionText = Record<CustomerReaction, string>
+
+const reactionToInternal: InternalReactionText = {
+  '괜찮다고 함': '고객은 응대 후 괜찮다는 의사를 밝힘.',
+  '불쾌감 표현': '고객이 불쾌감을 표현함.',
+  '연락처 남김': '고객이 후속 안내를 위해 연락처를 남김.',
+  '보상 요청': '고객이 보상을 요청하여 내부 기준에 따른 검토가 필요함.',
+  '고객사 공유 필요': '고객사 공유가 필요한 건으로 판단됨.',
+  미확인: '고객 반응은 추가 확인이 필요함.',
+}
+
+/** 현장 조치(완료) 명사형 표현 */
+const doneActionNoun: Record<Exclude<OnsiteAction, '현장 확인 중'>, string> = {
+  '고객 응대': '고객 응대',
+  '음식 교체': '음식 교체',
+  '메뉴 회수': '해당 메뉴 회수',
+  '동일 조리분 확인': '동일 조리분 확인',
+  '사진 기록': '사진 기록',
+  '고객사 보고': '고객사 1차 보고',
+}
+
+/** 사내 보고용: 유형별 확인 필요 사항 (예정형) */
+const internalCheckByCategory: Record<CategoryType, string> = {
+  머리카락: '위생모·작업복 착용 상태와 배식 전 최종 확인 절차 점검 예정임.',
+  벌레: '원물 세척·선별 및 잎채소류 잎 사이 확인 여부, 식재료 보관 상태 점검 예정임.',
+  '비닐/플라스틱': '포장재 제거 여부와 전처리·조립 공정, 제공 전 최종 확인 절차 점검 예정임.',
+  '뼈/가시': '원재료 특성 확인 및 전처리 선별, 조리 후 확인 절차 점검 예정임.',
+  '이물 혼입': '이물 성상 확인 및 유입 가능 공정(전처리·조리·배식) 점검 예정임.',
+  품절: '예상 식수 대비 실제 이용량과 차수별 준비량 확인 필요함.',
+  염도: '표준 레시피 대비 간 상태와 조리 중간 점검 기록 확인 필요함.',
+  품질: '해당 메뉴의 조리 기준 준수 여부와 제공 상태 확인 필요함.',
+  '양 부족': '기준 제공량 대비 실제 배식량 편차 확인 필요함.',
+  '위생 불만': '지적된 구역의 청결 상태와 점검 주기 준수 여부 확인 필요함.',
+  '직원 응대': '당시 응대 상황과 안내 내용 확인 필요함.',
+  '식중독 의심': '동일 메뉴 섭취자 중 유사 증상 발생 여부와 보관·조리 온도 기록 확인 필요함.',
+  안전사고: '원재료 특성과 전처리 선별, 조리·배식 과정 점검 예정임.',
+  기타: '접수 내용의 사실관계 확인 필요함.',
+}
+
+/** 고위험 유형: 반드시 포함해야 하는 조치. done 조건이 충족되면 해당 줄은 생략 */
+const highRiskRequiredLines: Partial<Record<CategoryType, Array<{ text: string; doneWhen?: OnsiteAction }>>> = {
   '식중독 의심': [
-    '섭취 메뉴 확인, 동일 증상 여부, 보존식·위생 기록을 확인하고 있습니다.',
-    '고객 상태 확인과 보건 연계 필요 여부를 정리하고 즉시 공유하고 있습니다.',
+    { text: '고객 상태와 증상, 섭취 메뉴·시간 확인 필요함(원인 단정 금지).' },
+    { text: '보존식 및 관련 기록 보존, 내부 긴급 보고와 관련 지침에 따른 조치 필요함.', doneWhen: '고객사 보고' },
   ],
   안전사고: [
-    '고객 상태 확인, 제공 메뉴 및 잔식 확인, 현물 보존을 포함해 점검하고 있습니다.',
-    '원재료 선별, 전처리, 조리·배식 과정을 중심으로 다시 확인 중입니다.',
-  ],
-  기타: [
-    '접수된 건의 핵심 항목을 분리해 현장 확인과 보고 범위를 정리하고 있습니다.',
-    '재확인 필요 항목을 운영 기준으로 정리해 내부 공유 중입니다.',
+    { text: '고객 상태 확인 및 필요 시 의료기관 안내 필요함.' },
+    { text: '제공 메뉴·잔식·현물 보존 및 사진 기록 필요함.', doneWhen: '메뉴 회수' },
+    { text: '고객사 및 내부 보고 필요함.', doneWhen: '고객사 보고' },
   ],
 }
 
-const clientIntensityByLevel: Record<ResponseIntensity, string[]> = {
-  일반: [
-    '관련 메뉴와 운영 공정을 확인해 필요 조치를 정리하겠습니다.',
-    '후속 조정은 단계별로 공유드리겠습니다.',
-  ],
-  주의: [
-    '관련 메뉴와 운영 공정을 함께 재점검하고 있습니다.',
-    '확인 결과는 단계적으로 공유드리겠습니다.',
-  ],
-  중대: [
-    '현장 조치 사항을 우선 확인하였고, 관련 공정 전반을 재점검하고 있습니다.',
-    '필요 시 본사 및 고객사 보고 선행 후 결과를 바로 공유하겠습니다.',
-  ],
+const cookingQualityOverrides = {
+  incident: '{{menu}}의 조리 상태가 충분하지 않다는 고객 의견이 접수됨.',
+  internalCheck: '해당 메뉴의 가열 시간·조리 온도 준수 여부와 동일 조리분 상태 확인 필요함.',
+  internalPrevention: '메뉴별 가열 시간·조리 온도 기준을 재교육하고 제공 전 조리 상태 확인을 강화하겠음.',
+  clientIssue: '조리 상태 불량',
+  clientCheck: '원인 확인을 위해 해당 메뉴의 가열 시간과 조리 온도, 중심부 조리 상태, 동일 조리분 상태를 점검하겠습니다.',
+  clientPrevention: '향후 메뉴별 가열 시간과 조리 온도 기준을 재교육하고, 제공 전 조리 상태 확인을 강화하겠습니다.',
+  customerIssue: '{t}의 조리 상태가 충분하지 않아',
+  customerCheck: '말씀 주신 내용을 바탕으로 해당 메뉴의 조리 온도와 가열 시간, 배식 전 확인 절차를 다시 점검하겠습니다.',
+  customerPrevention:
+    '또한 동일한 불편이 반복되지 않도록 관련 담당자와 조리 기준을 재확인하고, 메뉴 제공 전 최종 확인을 강화하겠습니다.',
 }
 
-const reactionToInternal: Record<CustomerReaction, string> = {
-  '괜찮다고 함': '고객은 응대 후 추가 요청 없이 종료함.',
-  '불쾌감 표현': '고객이 위생 상태 불편을 표명함.',
-  '연락처 남김': '고객 연락 정보가 남아 있어 후속 안내 체계를 준비함.',
-  '보상 요청': '보상 관련 요청이 접수되어 내부 검토 대상에 반영함.',
-  '고객사 공유 필요': '고객사 공유 요청 건으로 처리 우선순위를 조정함.',
-  미확인: '고객 반응 확인이 추가로 필요함.',
+// ───────────────────────── 한국어 처리 ─────────────────────────
+
+function fillTarget(template: string, target: string) {
+  return template.replace(/\{t:([^/}]+)\/([^}]+)\}/g, (_, a, b) => attachJosa(target, `${a}/${b}`)).replace(/\{t\}/g, target)
 }
 
-const reactionToClient: Record<CustomerReaction, string> = {
-  '괜찮다고 함': '고객은 추가 요청 없이 응대 종료로 전달됨.',
-  '불쾌감 표현': '고객이 불편을 구체적으로 전달해 주었습니다.',
-  '연락처 남김': '추가 안내 가능한 연락 채널이 확인됨.',
-  '보상 요청': '보상 요청이 있어 검토 범위에 반영함.',
-  '고객사 공유 필요': '고객사 공유 필요로 판단되어 병행 보고를 준비함.',
-  미확인: '고객의 반응 상세는 추가 확인이 필요함.',
+function joinNouns(nouns: string[]) {
+  return nouns.join(', ')
 }
 
-// Keep compatibility for client-path references used in legacy templates.
-void reactionToClient
-
-const onsiteActionToInternal: Record<OnsiteAction, string> = {
-  '고객 응대': '고객 응대를 진행함.',
-  '음식 교체': '음식 교체 절차를 진행함.',
-  '메뉴 회수': '해당 메뉴를 회수하고 잔식 확인 절차를 진행함.',
-  '동일 조리분 확인': '동일 조리분 상태를 확인함.',
-  '사진 기록': '현장 확인 내용을 사진으로 정리함.',
-  '고객사 보고': '고객사 보고 항목을 정리함.',
-  '현장 확인 중': '현장 확인 범위를 확대해 점검함.',
-}
+// ───────────────────────── 공통 유틸 ─────────────────────────
 
 function normalizeText(value: string) {
   return value.trim().toLowerCase()
-}
-
-function normalizeTextNoSpace(value: string) {
-  return normalizeText(value).replace(/\s+/g, '')
 }
 
 function toSafeText(value: string, fallback: string) {
@@ -643,7 +598,7 @@ function toSafeText(value: string, fallback: string) {
 }
 
 function normalizeDate(value: string) {
-  if (!value) return fallbackValues.occurredAt
+  if (!value) return ''
 
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) {
@@ -660,44 +615,40 @@ function normalizeDate(value: string) {
   return `${parsed.getFullYear()}. ${month}. ${day}. ${ampm} ${displayHour}:${minute}`
 }
 
+/** 사업장명에 이미 '식당' 등 업장 표현이 있으면 덧붙이지 않습니다. */
 function formatRestaurantName(siteName: string) {
   const trimmed = siteName.trim()
   if (!trimmed) return fallbackValues.workplace
-  if (trimmed.endsWith('식당')) return trimmed
+  if (/(식당|카페|라운지|키친|다이닝|푸드코트|레스토랑)/.test(trimmed)) return trimmed
   return `${trimmed} 식당`
+}
+
+/** 고객사 담당자 호칭: 비어 있으면 '담당자님', 이미 '님'으로 끝나면 그대로 */
+function formatContactTitle(name: string) {
+  const trimmed = name.trim()
+  if (!trimmed) return '담당자님'
+  if (trimmed.endsWith('님')) return trimmed
+  return `${trimmed} 님`
 }
 
 function sanitizeOutput(value: string) {
   return value
     .replace(/\.{3,}|…/g, '')
-    .replace(/강화하은/g, '강화하겠습니다')
-    .replace(/확인함\.가/gi, '확인하고 있음')
-    .replace(/중문식당식당/gi, '중문식당')
-    .replace(/\s+/g, ' ')
+    .replace(/\.{2,}/g, '.')
+    .replace(/[ \t]+/g, ' ')
     .trim()
 }
 
 function dedupeSentences(lines: string[]) {
-  const normalizedSet = new Set<string>()
+  const seen = new Set<string>()
   const output: string[] = []
-  const duplicates = new Set<string>()
-  const normalizedForKey = (line: string) => line.replace(/\s+/g, '').replace(/[^\p{L}\p{N}]/gu, '')
 
   for (const raw of lines) {
     const line = sanitizeOutput(raw)
     if (!line) continue
-    const compact = normalizedForKey(line)
-    const key = line
-      .replace(/계속/gi, '')
-      .replace(/현재?/g, '')
-      .replace(/\s+/g, '')
-
-    if (compact.length < 2) continue
-    if (duplicates.has(key) || normalizedSet.has(compact)) continue
-    if ([...normalizedSet].some((item) => item.includes(compact) || compact.includes(item))) continue
-
-    normalizedSet.add(compact)
-    duplicates.add(key)
+    const key = line.replace(/[^\p{L}\p{N}]/gu, '')
+    if (key.length < 2 || seen.has(key)) continue
+    seen.add(key)
     output.push(line)
   }
 
@@ -708,6 +659,7 @@ function hashSeed(value: string) {
   return Array.from(value).reduce((acc, char) => (acc * 131 + char.charCodeAt(0)) % 2147483647, 17)
 }
 
+/** 같은 입력이면 같은 결과가 나오도록 시드 기반으로 고릅니다. */
 function pickBySeed(items: string[], seed: string, count: number) {
   const deduped = dedupeSentences(items)
   if (deduped.length === 0) return []
@@ -724,233 +676,152 @@ function pickBySeed(items: string[], seed: string, count: number) {
 
 function replaceTemplate(text: string, context: ReturnType<typeof buildContext>) {
   return text
-    .replace('{{menu}}', context.menu)
-    .replace('{{keyword}}', context.keyword)
-    .replace('{{category}}', context.categoryLabel)
+    .replace(/\{\{menu:([^/}]+)\/([^}]+)\}\}/g, (_, a, b) => attachJosa(context.menu, `${a}/${b}`))
+    .replace(/\{\{menu\}\}/g, context.menu)
+    .replace(/\{\{keyword\}\}/g, context.keyword)
+    .replace(/\{\{category\}\}/g, context.categoryLabel)
 }
 
-function resolveCategory(form: ReportFormState, selectedCase: VocCase | null) {
-  const source = normalizeText(
-    [
-      selectedCase?.category,
-      selectedCase?.title,
-      selectedCase?.incident,
-      selectedCase?.customerScript,
-      selectedCase?.onsiteAction,
-      selectedCase?.rootCause,
-      selectedCase?.prevention,
-      selectedCase?.reportExample,
-      form.keyword,
-      form.menuName,
-      form.memo,
-      form.customerInfo,
-    ].join(' '),
-  )
+const knownCategories: CategoryType[] = [
+  '머리카락',
+  '벌레',
+  '비닐/플라스틱',
+  '뼈/가시',
+  '이물 혼입',
+  '품절',
+  '염도',
+  '품질',
+  '양 부족',
+  '위생 불만',
+  '직원 응대',
+  '식중독 의심',
+  '안전사고',
+]
 
-  const sourceNoSpace = normalizeTextNoSpace(source)
-  const baseCategory = detectReportCategory(source)
+/**
+ * 유형 판정은 사용자가 직접 입력한 키워드와 메모만 사용합니다.
+ * 고객 정보(예: '점심시간')나 유사 사례 본문은 판정에 섞지 않습니다.
+ * 키워드로 판정되지 않을 때만 사용자가 고른 유사 사례의 카테고리를 참고합니다.
+ */
+export function resolveCategory(form: Pick<ReportFormState, 'keyword' | 'memo'>, selectedCase: VocCase | null) {
+  const source = normalizeText([form.keyword, form.memo].join(' '))
+  let baseCategory: CategoryType = detectReportCategory(source)
 
-  const isSafety = safetyKeywords.some(
-    (keyword) => source.includes(keyword.toLowerCase()) || sourceNoSpace.includes(keyword.replace(/\s+/g, '').toLowerCase()),
-  )
+  if (baseCategory === '기타' && selectedCase && knownCategories.includes(selectedCase.category as CategoryType)) {
+    baseCategory = selectedCase.category as CategoryType
+  }
 
-  const isCookingQuality = QUALITY_COOKING_STATUS_KEYWORDS.some((keyword) => {
-    const lower = keyword.toLowerCase()
-    return source.includes(lower) || sourceNoSpace.includes(lower.replace(/\s+/g, ''))
-  }) || source.includes('조리상태불량')
+  const sourceNoSpace = source.replace(/\s+/g, '')
+  const isCookingQuality =
+    baseCategory === '품질' &&
+    QUALITY_COOKING_STATUS_KEYWORDS.some((keyword) => {
+      const lower = keyword.toLowerCase()
+      return source.includes(lower) || sourceNoSpace.includes(lower.replace(/\s+/g, ''))
+    })
+
+  const isSafety = baseCategory === '안전사고'
 
   return {
     baseCategory,
-    displayLabel: isSafety
-      ? safetyDisplayLabel
-      : baseCategory === '품질' && isCookingQuality
-        ? cookingQualityDisplayLabel
-        : baseCategory,
+    displayLabel: isSafety ? safetyDisplayLabel : isCookingQuality ? cookingQualityDisplayLabel : baseCategory,
     isSafety,
     isCookingQuality,
+    isHighRisk: isSafety || baseCategory === '식중독 의심',
   }
 }
 
 function buildContext(form: ReportFormState, selectedCase: VocCase | null) {
   const resolved = resolveCategory(form, selectedCase)
-  const category = resolved.isCookingQuality ? '품질' : resolved.baseCategory
+  const doneActions = form.onsiteActions.filter(
+    (action): action is Exclude<OnsiteAction, '현장 확인 중'> => action !== '현장 확인 중',
+  )
 
   return {
-    workplace: formatRestaurantName(toSafeText(form.workplace, fallbackValues.workplace)),
+    workplace: formatRestaurantName(form.workplace),
     restaurantManagerName: toSafeText(form.restaurantManagerName, fallbackValues.restaurantManagerName),
-    clientContactName: toSafeText(form.clientContactName, fallbackValues.clientContactName),
+    contactTitle: formatContactTitle(form.clientContactName),
+    hasMenu: form.menuName.trim().length > 0,
     menu: toSafeText(form.menuName, fallbackValues.menu),
     keyword: toSafeText(form.keyword, fallbackValues.keyword),
     customerInfo: toSafeText(form.customerInfo, fallbackValues.customerInfo),
     memo: toSafeText(form.memo, ''),
     occurredAt: normalizeDate(form.occurredAt),
-    category,
+    category: resolved.baseCategory,
     categoryLabel: resolved.displayLabel,
     isSafety: resolved.isSafety,
     isCookingQuality: resolved.isCookingQuality,
+    isHighRisk: resolved.isHighRisk,
+    doneActions,
+    doneNouns: doneActions.map((action) => doneActionNoun[action]),
+    isChecking: form.onsiteActions.includes('현장 확인 중'),
+    hasInspected: doneActions.some((action) => action === '동일 조리분 확인' || action === '메뉴 회수' || action === '사진 기록'),
+    reactions: form.customerReactions,
   }
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, value))
+type ReportContext = ReturnType<typeof buildContext>
+
+// ───────────────────────── 사내 보고용 ─────────────────────────
+
+function createIncidentLines(context: ReportContext, form: ReportFormState) {
+  const category = context.category
+  const firstLine = context.isCookingQuality
+    ? cookingQualityOverrides.incident
+    : incidentTemplateByCategory[category][0]
+
+  const reactionLimit = form.reportDetailLevel === '짧게' ? 0 : form.reportDetailLevel === '보통' ? 1 : 3
+  const reactionLines = context.reactions.slice(0, reactionLimit).map((reaction) => reactionToInternal[reaction])
+
+  let statusLine = ''
+  if (context.doneActions.length === 0) {
+    statusLine = context.isChecking
+      ? '현장 확인을 진행하고 있음.'
+      : '현장 확인 결과가 입력되지 않아 추가 확인 필요함.'
+  } else if (context.isChecking) {
+    statusLine = '현장 확인을 계속 진행하고 있음.'
+  }
+
+  return dedupeSentences([
+    replaceTemplate(firstLine, context),
+    ...reactionLines,
+    statusLine,
+    context.memo ? `현장 메모: ${context.memo}` : '',
+  ])
 }
 
-function createIncidentLines(context: ReturnType<typeof buildContext>, form: ReportFormState) {
-  const category = (context.isCookingQuality ? '품질' : context.category) as CategoryType
+function createActionLines(context: ReportContext, form: ReportFormState) {
+  const category = context.category
   const config = detailConfig[form.reportDetailLevel]
-  const targetCount = clamp(context.isSafety ? config.incidentCount : config.incidentCount, 2, 4)
-  const seedBase = `${lineSeedSeed}|incident|${context.keyword}|${context.menu}|${context.categoryLabel}|${form.customerReactions.join(',')}`
+  const seedBase = `${lineSeedSeed}|action|${context.menu}|${context.categoryLabel}`
 
-  const base = [
-    replaceTemplate(incidentTemplateByCategory[category][0], context),
-    context.isSafety && context.isCookingQuality
-      ? '안전성 우려 건으로 고객 상태 확인이 병행됨.'
-      : replaceTemplate(incidentTemplateByCategory[category][1], context),
-  ]
+  const doneLine =
+    context.doneNouns.length > 0 ? `${attachJosa(joinNouns(context.doneNouns), '을/를')} 완료함.` : ''
 
-  const reactionLine = `${context.menu} 이용 고객이 ${form.customerReactions[0] ?? '미확인'} 반응을 남겨 현장 접수됨.`
-  const additional = pickBySeed(incidentTemplateByCategory[category].slice(2), seedBase, 3).map((line) => replaceTemplate(line, context))
+  const requiredLines = (highRiskRequiredLines[category] ?? [])
+    .filter((item) => !item.doneWhen || !context.doneActions.includes(item.doneWhen as Exclude<OnsiteAction, '현장 확인 중'>))
+    .map((item) => item.text)
 
-  return pickBySeed(
-    dedupeSentences([...base, reactionLine, ...additional]),
-    `${seedBase}|final`,
-    targetCount,
-  )
-}
+  const checkLine = context.isCookingQuality ? cookingQualityOverrides.internalCheck : internalCheckByCategory[category]
+  const causeLine = context.isHighRisk ? '' : pickBySeed(causeTemplateByCategory[category], `${seedBase}|cause`, 1)[0] ?? ''
 
-function createActionLines(context: ReturnType<typeof buildContext>, form: ReportFormState) {
-  const category = (context.isCookingQuality ? '품질' : context.category) as CategoryType
-  const config = detailConfig[form.reportDetailLevel]
-  const targetCount = clamp(context.isSafety ? config.actionCount : config.actionCount, 3, 4)
-  const seedBase = `${lineSeedSeed}|action|${context.menu}|${context.categoryLabel}|${form.onsiteActions.join(',')}`
+  const fixed = dedupeSentences([doneLine, ...requiredLines, checkLine, causeLine])
+  const preventionPool = context.isCookingQuality
+    ? [cookingQualityOverrides.internalPrevention, ...preventionTemplateByCategory[category]]
+    : preventionTemplateByCategory[category]
+  const preventionCount = Math.max(1, config.actionCount - fixed.length)
+  const prevention = context.isCookingQuality
+    ? preventionPool.slice(0, preventionCount)
+    : pickBySeed(preventionPool, `${seedBase}|prevent`, preventionCount)
 
-  const selectedActionLines = form.onsiteActions.map((action) => onsiteActionToInternal[action])
-  const baseAction = selectedActionLines.length > 0
-    ? selectedActionLines
-    : [
-        category === '안전사고'
-          ? '현장 확인 및 사용자 상태 확인 후 조치 범위를 정리함.'
-          : '현장을 확인하고 즉시 조치를 진행함.',
-      ]
-
-  const candidateActions = dedupeSentences([
-    ...baseAction,
-    ...actionTemplateByCategory[category],
-    ...pickBySeed(causeTemplateByCategory[category], `${seedBase}|cause`, 2).map((line) => `${line}`),
-    ...pickBySeed(preventionTemplateByCategory[category], `${seedBase}|prevent`, 2).map((line) => `${line}`),
-    reactionToInternal[form.customerReactions[0] ?? '미확인'],
-  ]).filter(Boolean)
-
-  return pickBySeed(candidateActions, `${seedBase}|pick`, targetCount)
-}
-
-function createClientLines(context: ReturnType<typeof buildContext>, form: ReportFormState) {
-  const category = (context.isCookingQuality ? '품질' : context.category) as CategoryType
-  const seedBase = `${lineSeedSeed}|client|${context.menu}|${context.categoryLabel}|${form.responseIntensity}|${context.keyword}`
-  const title = context.categoryLabel === cookingQualityDisplayLabel ? '조리상태' : context.categoryLabel
-
-  const core = pickBySeed(clientCoreByCategory[category], `${seedBase}|core`, 2)
-  const intensity = clientIntensityByLevel[form.responseIntensity]
-  const actionText = form.onsiteActions.length > 0
-    ? [
-        '현장 조치로 고객사 공유 및 안내 범위도 함께 정리하였습니다.',
-      ]
-    : ['현장 점검 후 공유 범위를 정리하였습니다.']
-
-  const lines = [
-    `안녕하세요 ${context.clientContactName}님,`,
-    `금일 ${context.workplace} 이용 중 발생한 ${title} VOC 관련하여 보고드립니다.`,
-    context.isSafety && context.isCookingQuality
-      ? '고객님께서 딱딱한 물질을 씹은 뒤 치아 불편을 호소하신 건으로, 고객 상태 확인 후 즉시 현장 점검을 진행하였습니다.'
-      : `말씀 주신 건은 현장에서 즉시 확인하였고 ${context.categoryLabel} 관련 메뉴·공정을 점검하였습니다.`,
-    ...core,
-    ...actionText,
-    `현재는 ${clientIntensityByLevel[form.responseIntensity][0]}`,
-    `향후 동일 사례 방지를 위해 관련 공정과 최종 확인 절차를 강화하겠습니다.`,
-    '확인 결과와 개선 사항은 정리되는 대로 추가 공유드리겠습니다.',
-    '감사합니다.',
-  ]
-
-  if (form.responseIntensity === '주의' || form.responseIntensity === '중대') {
-    lines.splice(
-      lines.indexOf(`현재는 ${clientIntensityByLevel[form.responseIntensity][0]}`) + 1,
-      0,
-      intensity[1] ? intensity[1] : '',
-    )
+  if (form.customerReactions.includes('보상 요청')) {
+    prevention.push('보상 관련 사항은 내부 기준과 고객사 협의에 따라 검토 예정임.')
   }
 
-  return dedupeSentences(lines.map((line) => replaceTemplate(line, context))).filter((line) => line.length > 0)
-}
-
-function buildCustomerMessage(form: ReportFormState, selectedCase: VocCase | null): string {
-  const context = buildContext(form, selectedCase)
-  const category = (context.isCookingQuality ? '품질' : context.category) as CategoryType
-  const seedBase = `${lineSeedSeed}|customer|${context.menu}|${context.categoryLabel}|${form.responseIntensity}`
-  const coreLines = pickBySeed(customerResponseCoreByCategory[category], `${seedBase}|core`, 2)
-  const reactionLine = pickBySeed(
-    [
-      `말씀 주신 내용은 ${form.customerReactions[0] ?? '미확인'} 반응을 함께 반영해 진행하겠습니다.`,
-      `말씀하신 내용은 즉시 현장에서 확인하고 있습니다.`,
-      `추가로 관련 메뉴와 담당 절차를 함께 점검하겠습니다.`,
-    ],
-    `${seedBase}|reaction`,
-    1,
-  ).join(' ')
-
-  const actionSeed = form.onsiteActions.length > 0
-    ? `${seedBase}|onsite`
-    : `${seedBase}|default`
-
-  const actionLine = form.onsiteActions.length > 0
-    ? pickBySeed(
-      form.onsiteActions.map((action) =>
-        action === '고객 응대'
-          ? '필요 시 관련 담당자와 함께 안내 및 확인 절차를 다시 정비하겠습니다.'
-          : action === '음식 교체'
-            ? '음식 교체 기준과 안내를 바로 점검하겠습니다.'
-            : action === '메뉴 회수'
-              ? '메뉴 회수 후 잔식 확인 절차를 보완하겠습니다.'
-              : action === '동일 조리분 확인'
-                ? '동일 조리분의 상태 점검을 우선 진행하겠습니다.'
-                : action === '사진 기록'
-                  ? '현장 점검 내용을 증빙으로 정리하겠습니다.'
-                  : action === '고객사 보고'
-                    ? '고객사 공유를 위한 내부 정리도 함께 진행하겠습니다.'
-                    : '추가 확인 항목을 정리해 진행하겠습니다.',
-      ),
-      actionSeed,
-      1,
-    ).join(' ')
-    : '필요 항목을 기준별로 정리해 확인하겠습니다.'
-
-  const p2 = `말씀 주신 ${context.categoryLabel}로 식사 이용 중 불편을 드린 점 죄송합니다.`
-  const p3 = `${category === '품질' && context.isCookingQuality
-      ? '말씀 주신 내용은 현장에서 확인하였으며, 해당 메뉴의 조리 상태와 조리 기준을 다시 점검하겠습니다.'
-      : `말씀 주신 내용은 현장에서 확인하였으며, 해당 메뉴의 조리·배식 과정을 다시 점검하겠습니다.`}`
-  const p4 = `${reactionLine} ${actionLine}`
-  const p5 = '동일한 불편이 반복되지 않도록 확인 절차를 강화하겠습니다.'
-
-  const paragraphs = dedupeSentences([
-    `안녕하세요, ${context.workplace}입니다.`,
-    p2,
-    p3,
-    ...coreLines,
-    coreLines[1] ? `${coreLines[1]}${coreLines[1].endsWith('.') ? '' : ''}` : p4,
-    `${actionLine}`,
-    `${p4}`,
-    `${p5} ${customerClosingLine}`,
-  ]).filter(Boolean)
-
-  if (paragraphs.length === 0) {
-    return `안녕하세요, ${context.workplace}입니다.\n\n${p2}\n\n${p3}\n\n${p5} ${customerClosingLine}`
-  }
-
-  const result = paragraphs.slice(0, 5)
-  return result.join('\n\n')
+  return dedupeSentences([...fixed, ...prevention])
 }
 
 function ensureInternalStyle(line: string) {
-  return line.replace(/합니다\./g, '함.').replace(/했습니다\./g, '했습니다.')
+  return line.replace(/합니다\.$/g, '함.')
 }
 
 function buildInternalReport(form: ReportFormState, selectedCase: VocCase | null): string {
@@ -966,7 +837,7 @@ function buildInternalReport(form: ReportFormState, selectedCase: VocCase | null
     '',
     `2.VOC 유형 : ${context.categoryLabel}`,
     '',
-    `3.발생 일시 : ${context.occurredAt}`,
+    `3.발생 일시 : ${context.occurredAt || fallbackValues.occurredAt}`,
     '',
     `4.고객 정보 : ${context.customerInfo}`,
     '',
@@ -982,13 +853,120 @@ function buildInternalReport(form: ReportFormState, selectedCase: VocCase | null
     .join('\n')
 }
 
+// ───────────────────────── 고객사 보고용 ─────────────────────────
+
 function buildClientReport(form: ReportFormState, selectedCase: VocCase | null): string {
   const context = buildContext(form, selectedCase)
-  const lines = createClientLines(context, form)
-  const reportLines = dedupeSentences(lines)
-  const filtered = reportLines.filter((line) => !/형식/.test(line))
+  const category = context.category
 
-  return filtered.join('\n')
+  const issueLabel = context.isCookingQuality ? cookingQualityOverrides.clientIssue : clientIssueLabelByCategory[category]
+  const menuPart = context.hasMenu && menuRelatedCategories.includes(category) ? `${context.menu}의 ` : ''
+  const whenPart = context.occurredAt ? `${context.occurredAt}경 ` : ''
+
+  const greeting = `안녕하세요, ${context.contactTitle}. ${context.workplace}입니다.`
+  const usagePart = context.isHighRisk ? '' : '식당 이용 중 '
+  const overview = `${whenPart}${usagePart}${menuPart}${issueLabel} 관련 고객 의견이 접수되어 보고드립니다.`
+
+  const statusParts: string[] = []
+  if (context.isSafety) {
+    statusParts.push(
+      '무엇보다 고객님의 상태 확인을 최우선으로 하고 있으며, 제공 메뉴와 잔식 등 관련 현물을 보존해 확인하겠습니다.',
+    )
+  } else if (category === '식중독 의심') {
+    statusParts.push(
+      '고객님의 증상과 섭취 메뉴를 우선 확인하고, 보존식과 관련 기록을 보존해 내부 기준에 따라 신속히 보고·대응하겠습니다.',
+    )
+  }
+  if (context.doneNouns.length > 0) {
+    statusParts.push(`현장에서는 ${attachJosa(joinNouns(context.doneNouns), '을/를')} 진행하였습니다.`)
+  }
+  if (context.isChecking) {
+    statusParts.push('현재 현장 확인을 진행하고 있습니다.')
+  }
+  if (context.doneNouns.length === 0 && !context.isChecking && !context.isHighRisk) {
+    statusParts.push('접수된 내용을 바탕으로 현장 확인을 진행할 예정입니다.')
+  }
+  if (context.reactions.includes('보상 요청')) {
+    statusParts.push('고객께서 요청하신 보상 관련 사항은 관련 기준에 따라 검토 후 협의드리겠습니다.')
+  }
+  if (context.reactions.includes('연락처 남김')) {
+    statusParts.push('고객께서 연락처를 남겨 주셔서 확인 결과를 개별 안내드릴 예정입니다.')
+  }
+
+  const check = context.isCookingQuality ? cookingQualityOverrides.clientCheck : clientCheckByCategory[category]
+  const prevention = context.isCookingQuality
+    ? cookingQualityOverrides.clientPrevention
+    : clientPreventionByCategory[category]
+
+  const followUp =
+    form.responseIntensity === '일반'
+      ? '확인 결과와 개선 사항은 정리되는 대로 추가로 공유드리겠습니다.'
+      : '사안의 중요도를 고려해 진행 상황을 단계별로 신속히 공유드리겠습니다.'
+
+  const paragraphs = [
+    greeting,
+    overview,
+    statusParts.join(' '),
+    form.reportDetailLevel === '짧게' ? `${check} ${prevention}` : check,
+    form.reportDetailLevel === '짧게' ? '' : prevention,
+    `${followUp}\n감사합니다.`,
+  ]
+
+  return paragraphs
+    .map((paragraph) => paragraph.split('\n').map(sanitizeOutput).join('\n'))
+    .filter((paragraph) => paragraph.length > 0)
+    .join('\n\n')
+}
+
+// ───────────────────────── 고객용 ─────────────────────────
+
+function buildCustomerMessage(form: ReportFormState, selectedCase: VocCase | null): string {
+  const context = buildContext(form, selectedCase)
+  const category = context.category
+  const target = context.hasMenu ? context.menu : '음식'
+
+  const greeting = `안녕하세요, ${context.workplace}입니다.`
+
+  let apology: string
+  let check: string
+  let prevention: string
+
+  if (context.isSafety) {
+    apology = '식사 중 딱딱한 물질로 치아에 불편을 겪으셨다는 말씀을 듣고 많이 놀라셨을 것 같아 진심으로 죄송합니다.'
+    check =
+      '무엇보다 고객님의 상태가 가장 중요합니다. 불편하신 부분이 있으시면 바로 말씀해 주시고, 진료 안내 등 필요한 사항을 도와드리겠습니다.'
+    prevention =
+      '말씀 주신 메뉴와 관련 현물을 보존해 원재료와 조리·배식 과정을 확인하겠으며, 확인되는 내용은 신속히 안내드리겠습니다.'
+  } else if (category === '식중독 의심') {
+    apology = '식사 후 몸이 불편하셨다는 말씀을 듣고 걱정이 큽니다. 불편을 드려 진심으로 죄송합니다.'
+    check =
+      '무엇보다 고객님의 건강 상태가 가장 중요합니다. 증상이 계속되시면 의료기관 진료를 받으시길 권해 드리며, 필요하신 사항은 말씀해 주시면 도와드리겠습니다.'
+    prevention = '섭취하신 메뉴와 관련 기록을 확인하고 관련 기준에 따라 신속히 조치하겠으며, 확인되는 내용은 안내드리겠습니다.'
+  } else {
+    const issue = fillTarget(
+      context.isCookingQuality ? cookingQualityOverrides.customerIssue : customerIssueByCategory[category],
+      target,
+    )
+    apology = `${issue} 식사 이용에 불편을 드린 점 진심으로 죄송합니다.`
+
+    const core = customerResponseCoreByCategory[category]
+    const intro = context.hasInspected ? '말씀 주신 내용은 현장에서 바로 확인하였으며, ' : ''
+    const baseCheck = context.isCookingQuality ? cookingQualityOverrides.customerCheck : core[0]
+    check = intro ? `${intro}${baseCheck.replace(/^말씀 주신 내용을 바탕으로 /, '')}` : baseCheck
+    if (context.doneActions.includes('음식 교체')) {
+      check = `${check} 불편을 드린 음식은 교체해 드렸습니다.`
+    }
+    prevention = context.isCookingQuality ? cookingQualityOverrides.customerPrevention : core[2]
+  }
+
+  if (context.reactions.includes('보상 요청')) {
+    prevention = `${prevention} 요청하신 사항은 관련 기준에 따라 검토 후 안내드리겠습니다.`
+  }
+  if (context.reactions.includes('연락처 남김')) {
+    prevention = `${prevention} 확인 결과는 남겨 주신 연락처로 안내드리겠습니다.`
+  }
+
+  return [greeting, apology, check, prevention, customerClosingLine].map(sanitizeOutput).join('\n\n')
 }
 
 export function generateCustomerMessage(form: ReportFormState, selectedCase: VocCase | null): string {

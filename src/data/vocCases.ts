@@ -11,7 +11,6 @@ export type VocCase = {
 }
 
 export const categories = [
-  { id: '전체', label: '전체' },
   { id: '이물 혼입', label: '이물 혼입' },
   { id: '벌레', label: '벌레' },
   { id: '머리카락', label: '머리카락' },

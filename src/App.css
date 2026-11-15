@@ -1735,3 +1735,32 @@
     font-size: 0.78rem;
   }
 }
+
+/* Phase 1: 닫기 버튼이 원형 고정 폭이라 360px에서 "닫/기"로 줄바꿈되던 문제 수정 */
+.modal__close {
+  width: auto;
+  min-width: 3.25rem;
+  padding: 0 0.85rem;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+
+.report-form__fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.report-form__fieldset legend {
+  padding: 0;
+  margin-bottom: 0.45rem;
+  font-weight: 600;
+  color: #153b61;
+}
+
+.report-copy-error {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  color: #b42318;
+}
