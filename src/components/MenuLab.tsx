@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { type BudgetOption, type MenuLabInput, type MenuRecommendationItem, recommendMenus } from '../utils/menuRecommender'
+import { PageHero } from './PageHero'
 import { type CustomerType, type MenuDirection, type MealType, type VocRisk } from '../data/menuMainItems'
 
 type AvoidIssue = VocRisk | '없음'
@@ -100,8 +101,17 @@ export function MenuLab() {
 
   return (
     <section className="menu-lab">
-      <h1 className="menu-lab__title">메뉴 추천</h1>
-      <p className="menu-lab__subtitle">식사 상황과 고객 VOC 이슈를 반영해 메뉴를 추천합니다. 식단가는 참고 조건이며, 실제 식재료 원가는 계산하지 않습니다.</p>
+      <PageHero
+        tone="leaf"
+        eyebrow="메뉴 기획"
+        title="메뉴 추천"
+        description="식사 상황과 피하고 싶은 VOC를 고르면 메뉴 조합을 제안합니다."
+        note="식단가는 참고 조건이며 식재료 원가는 계산하지 않습니다."
+        stats={[
+          { value: '3', unit: '안', label: '한 번에 제안' },
+          { value: String(avoidIssueOptions.length - 1), unit: '개', label: '반영하는 VOC 유형' },
+        ]}
+      />
 
       <form className="menu-lab__form menu-lab__form--sections" onSubmit={handleSubmit}>
         <fieldset className="form-section">

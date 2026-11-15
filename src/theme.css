@@ -1,0 +1,1205 @@
+/*
+ * 따뜻한 식탁 테마 (가장 마지막에 불러옵니다)
+ * - 바탕은 아이보리, 카드는 흰색. 강조색은 토마토 주황 하나, 화면별 머리 띠에만 잎 초록·호박 노랑을 씁니다.
+ * - 모서리는 크게, 머리 띠는 한쪽 모서리만 덜 둥글게(잎 모양) 해서 단조로움을 덜어 냅니다.
+ * - 글자 대비는 모두 4.5:1 이상으로 맞췄습니다.
+ */
+
+/* index.css가 나중에 읽혀도 이 값이 이기도록 선택자를 한 단계 높입니다 */
+html:root {
+  font-family: 'Pretendard Variable', 'Pretendard', 'Segoe UI', 'Malgun Gothic', system-ui, sans-serif;
+
+  --bg: #f7f3ee;
+  --surface: #ffffff;
+  --raised: #faf6f1;
+  --line: #ebe3da;
+  --line-strong: #d6cabd;
+  --text: #1f1a17;
+  --text-2: #4a423c;
+  --muted: #6e635b;
+
+  --accent: #cf4316;
+  --accent-hover: #b8380f;
+  --accent-ink: #b8380f;
+  --accent-soft: #fdeee7;
+  --accent-tint: #fbe2d6;
+
+  --leaf: #2f7d5b;
+  --leaf-ink: #246b4c;
+  --leaf-soft: #e8f3ec;
+  --amber: #e0a320;
+  --amber-ink: #8a5800;
+  --amber-soft: #fcf1d9;
+
+  --positive: #2f7d5b;
+  --positive-soft: #e8f3ec;
+
+  --field-border: #d6cabd;
+  --field-border-hover: #a8998b;
+  --focus-ring: 0 0 0 3px rgb(207 67 22 / 20%);
+
+  --shadow-sm: 0 1px 2px rgb(60 30 10 / 5%);
+  --shadow-card: 0 1px 2px rgb(60 30 10 / 4%), 0 10px 28px -16px rgb(60 30 10 / 18%);
+  --shadow-lift: 0 2px 4px rgb(60 30 10 / 6%), 0 16px 32px -16px rgb(60 30 10 / 26%);
+
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-leaf: 28px 6px 28px 6px;
+}
+
+html body {
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ── 앱 틀 ── */
+
+.side-nav {
+  gap: 28px;
+  padding: 24px 14px 18px;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+}
+
+.brand__mark {
+  width: 36px;
+  height: 36px;
+  padding: 6px;
+  border-radius: 10px 3px 10px 3px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.brand__name {
+  font-size: 1.1875rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.brand__desc {
+  color: var(--muted);
+}
+
+.nav-list {
+  gap: 4px;
+}
+
+.nav-item {
+  min-height: 44px;
+  gap: 12px;
+  padding: 0 12px;
+  border-radius: 12px;
+  color: var(--text-2);
+  font-size: 0.9688rem;
+  font-weight: 500;
+}
+
+.nav-item svg {
+  color: var(--muted);
+}
+
+.nav-item:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+
+.nav-item.is-active {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.nav-item.is-active svg {
+  color: var(--accent);
+}
+
+.side-nav__foot .nav-item {
+  min-height: 40px;
+  font-size: 0.875rem;
+}
+
+.top-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.main {
+  padding: 32px 40px 56px;
+}
+
+/* ── 화면 머리 띠 ── */
+
+.page-hero {
+  --hero-bg: var(--accent-soft);
+  --hero-ink: var(--accent-ink);
+  --hero-main: var(--accent);
+  --hero-sub: #f6a37f;
+  --hero-dot: #f2c14e;
+  --hero-leaf: #4f9d76;
+
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 200px;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 24px;
+  padding: 32px 36px;
+  border-radius: var(--radius-leaf);
+  background: var(--hero-bg);
+  overflow: hidden;
+}
+
+.page-hero::after {
+  content: '';
+  position: absolute;
+  right: -60px;
+  bottom: -90px;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 45%);
+  pointer-events: none;
+}
+
+.page-hero--leaf {
+  --hero-bg: var(--leaf-soft);
+  --hero-ink: var(--leaf-ink);
+  --hero-main: #e0703f;
+  --hero-sub: #f2c14e;
+  --hero-dot: #cf4316;
+  --hero-leaf: var(--leaf);
+}
+
+.page-hero--amber {
+  --hero-bg: var(--amber-soft);
+  --hero-ink: var(--amber-ink);
+  --hero-main: #e0703f;
+  --hero-sub: #f2c14e;
+  --hero-dot: #f6a37f;
+  --hero-leaf: #4f9d76;
+}
+
+.page-hero__body {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.page-hero__eyebrow {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--hero-ink);
+}
+
+.page-hero__title {
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.page-hero__desc {
+  max-width: 560px;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--text-2);
+  word-break: keep-all;
+}
+
+.page-hero__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  margin: 12px 0 0;
+}
+
+.page-hero__stat {
+  display: grid;
+  gap: 2px;
+}
+
+.page-hero__stat dt {
+  order: 2;
+  font-size: 0.8125rem;
+  color: var(--text-2);
+}
+
+.page-hero__stat dd {
+  order: 1;
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--hero-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.page-hero__stat dd span {
+  margin-left: 2px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.page-hero__art {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: auto;
+}
+
+.art-shadow {
+  fill: rgb(60 30 10 / 8%);
+}
+
+.art-plate {
+  fill: #fff;
+}
+
+.art-plate-in {
+  fill: var(--raised);
+  stroke: var(--line);
+  stroke-width: 2;
+}
+
+.art-main {
+  fill: var(--hero-main);
+}
+
+.art-sub {
+  fill: var(--hero-sub);
+}
+
+.art-dot {
+  fill: var(--hero-dot);
+}
+
+.art-leaf {
+  fill: var(--hero-leaf);
+}
+
+.art-stroke {
+  fill: none;
+  stroke: var(--hero-ink);
+  stroke-width: 4;
+  stroke-linecap: round;
+  opacity: 0.45;
+}
+
+/* ── 카드 ── */
+
+.search-panel,
+.menu-lab__form,
+.menu-lab-result,
+.meal-plan__form,
+.meal-plan__result {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.search-panel,
+.meal-plan__form,
+.meal-plan__result,
+.menu-lab-result {
+  padding: 24px;
+}
+
+.result-summary {
+  margin-top: 28px;
+}
+
+.result-summary p {
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+/* VOC 사례 카드 */
+
+.entry-grid {
+  gap: 16px;
+}
+
+.entry-card {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  transition: transform 180ms var(--ease), box-shadow 180ms var(--ease), border-color 180ms var(--ease);
+}
+
+.entry-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-tint);
+  box-shadow: var(--shadow-lift);
+}
+
+.entry-card:focus-visible {
+  outline: 3px solid rgb(207 67 22 / 35%);
+  outline-offset: 2px;
+}
+
+.entry-card__category {
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.entry-card__title {
+  font-weight: 700;
+  color: var(--text);
+}
+
+.entry-card__link {
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+
+.entry-card__link::after {
+  content: ' →';
+  transition: margin-left 180ms var(--ease);
+}
+
+.entry-card:hover .entry-card__link::after {
+  margin-left: 4px;
+}
+
+/* ── 입력칸 ── */
+
+.menu-lab__field select,
+.menu-lab__field input,
+.menu-lab__field textarea,
+.search-bar__input,
+.report-form input,
+.report-form textarea,
+.report-form select {
+  border-color: var(--field-border);
+  border-radius: var(--radius-sm);
+}
+
+.search-bar__input {
+  min-height: 52px;
+  font-size: 1rem;
+}
+
+.menu-lab__field select:hover,
+.menu-lab__field input:hover,
+.menu-lab__field textarea:hover,
+.search-bar__input:hover {
+  border-color: var(--field-border-hover);
+}
+
+.menu-lab__field select:focus,
+.menu-lab__field input:focus,
+.menu-lab__field textarea:focus,
+.search-bar__input:focus,
+.report-form input:focus,
+.report-form textarea:focus,
+.report-form select:focus {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}
+
+::placeholder {
+  color: #9a8e84;
+}
+
+/* 선택 칩 */
+
+.menu-lab__checkbox {
+  border-color: var(--field-border);
+  border-radius: var(--radius-sm);
+}
+
+.menu-lab__checkbox-mark {
+  border-color: var(--field-border-hover);
+}
+
+.menu-lab__checkbox--active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.menu-lab__checkbox--active .menu-lab__checkbox-mark {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.meal-plan__check input {
+  accent-color: var(--accent);
+}
+
+.chip,
+.keyword-shortcut-chip {
+  border-color: var(--field-border);
+  border-radius: 999px;
+  padding-inline: 14px;
+}
+
+.chip:hover,
+.keyword-shortcut-chip:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.chip--active,
+.keyword-shortcuts .chip--active,
+.chip--active:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* 폼 구역 */
+
+.form-section + .form-section,
+.meal-plan__group + .meal-plan__group {
+  border-top-color: var(--line);
+}
+
+.form-section__title,
+.meal-plan__group legend {
+  font-weight: 700;
+}
+
+/* ── 버튼 ── */
+
+.meal-plan__primary,
+.report-generate-button {
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.meal-plan__primary:hover,
+.report-generate-button:hover {
+  background: var(--accent-hover);
+}
+
+.meal-plan__primary:focus-visible,
+.meal-plan__button:focus-visible,
+.nav-item:focus-visible,
+.chip:focus-visible,
+.tab-bar__item:focus-visible {
+  outline: 3px solid rgb(207 67 22 / 35%);
+  outline-offset: 2px;
+}
+
+.meal-plan__button {
+  border-color: var(--field-border);
+  border-radius: var(--radius-sm);
+}
+
+.meal-plan__button:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.meal-plan__button:hover svg {
+  color: var(--accent);
+}
+
+/* ── 메뉴 추천 결과 ── */
+
+.menu-lab-result__card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.menu-lab-result__card:first-of-type {
+  border-color: var(--accent-tint);
+  background: linear-gradient(180deg, var(--accent-soft), var(--surface) 120px);
+}
+
+.menu-lab-result__rank {
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* ── 식단표 ── */
+
+.meal-plan__stats {
+  border: 0;
+  gap: 12px;
+}
+
+.meal-plan__stat,
+.meal-plan__stat:first-child {
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--raised);
+}
+
+.meal-plan__stat dd {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.meal-plan__table-wrap {
+  border-color: var(--line);
+  border-radius: var(--radius-md);
+}
+
+.meal-plan__table th,
+.meal-plan__table td {
+  border-color: var(--line);
+}
+
+.meal-plan__table thead th {
+  background: var(--amber-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.meal-plan__table tfoot th,
+.meal-plan__table tfoot td {
+  background: var(--raised);
+}
+
+.meal-plan__week-title {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.meal-plan__swap:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.meal-plan__card {
+  border-radius: var(--radius-md);
+}
+
+.meal-plan__notice {
+  background: var(--raised);
+}
+
+/* ── 모달 ── */
+
+.modal,
+.modal__content,
+.report-modal {
+  border-radius: var(--radius-lg);
+}
+
+/* ── 모바일 ── */
+
+@media (max-width: 899px) {
+  .main {
+    padding: 20px 16px 32px;
+  }
+
+  .brand__mark {
+    width: 32px;
+    height: 32px;
+    padding: 5px;
+  }
+
+  .tab-bar {
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+    box-shadow: 0 -4px 16px -8px rgb(60 30 10 / 12%);
+  }
+
+  .tab-bar__item {
+    color: var(--muted);
+  }
+
+  .tab-bar__item.is-active {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    font-weight: 700;
+  }
+
+  .page-hero {
+    grid-template-columns: minmax(0, 1fr) 120px;
+    padding: 24px;
+  }
+}
+
+@media (max-width: 599px) {
+  .page-hero {
+    grid-template-columns: minmax(0, 1fr) 84px;
+    gap: 12px;
+    padding: 20px 18px;
+    border-radius: 22px 6px 22px 6px;
+  }
+
+  .page-hero__art {
+    align-self: start;
+  }
+
+  .page-hero__title {
+    font-size: 1.625rem;
+  }
+
+  .page-hero__desc {
+    font-size: 0.9375rem;
+  }
+
+  .page-hero__stats {
+    grid-column: 1 / -1;
+    gap: 8px 24px;
+  }
+
+  .page-hero__stat dd {
+    font-size: 1.375rem;
+  }
+
+  .search-panel,
+  .meal-plan__form,
+  .meal-plan__result,
+  .menu-lab-result {
+    padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .entry-card,
+  .entry-card__link::after {
+    transition: none;
+  }
+
+  .entry-card:hover {
+    transform: none;
+  }
+}
+
+@media print {
+  .page-hero {
+    display: none !important;
+  }
+
+  .entry-card,
+  .meal-plan__result {
+    box-shadow: none;
+  }
+}
+
+/* ───────── 2차 다듬기: 디자이너 검수 반영 ───────── */
+
+html:root {
+  --cat-foreign: #cf4316;
+  --cat-foreign-soft: #fdeee7;
+  --cat-foreign-ink: #b8380f;
+  --cat-taste: #2f7d5b;
+  --cat-taste-soft: #e8f3ec;
+  --cat-taste-ink: #246b4c;
+  --cat-stock: #e0a320;
+  --cat-stock-soft: #fcf1d9;
+  --cat-stock-ink: #8a5800;
+  --cat-safety: #a3365f;
+  --cat-safety-soft: #f8eaf0;
+  --cat-safety-ink: #8a2b4f;
+  --cat-service: #4a5a94;
+  --cat-service-soft: #eef0f7;
+  --cat-service-ink: #3d4a7a;
+  --focus-ring: 0 0 0 3px rgb(207 67 22 / 55%);
+}
+
+/* 머리 띠는 짧게: 매일 쓰는 도구라 검색창·폼이 먼저 보이도록 */
+.page-hero {
+  grid-template-columns: minmax(0, 1fr) 168px;
+  margin-bottom: 20px;
+  padding: 24px 32px;
+}
+
+.page-hero__title {
+  font-size: 1.875rem;
+}
+
+.page-hero__stats {
+  margin-top: 8px;
+}
+
+/* 포커스는 진한 주황 외곽선 하나로 통일 */
+.meal-plan__primary:focus-visible,
+.meal-plan__button:focus-visible,
+.nav-item:focus-visible,
+.chip:focus-visible,
+.tab-bar__item:focus-visible,
+.entry-card:focus-visible,
+.modal__close:focus-visible,
+.menu-lab__checkbox:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+::placeholder,
+.report-form__placeholder {
+  color: #857a70;
+}
+
+/* VOC 사례 카드: 유형별 색 띠, 더 촘촘하게 */
+.entry-grid {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.entry-card {
+  --cat: var(--cat-foreign);
+  --cat-soft: var(--cat-foreign-soft);
+  --cat-ink: var(--cat-foreign-ink);
+
+  min-height: 0;
+  gap: 6px;
+  padding: 20px 18px 18px;
+  overflow: hidden;
+}
+
+.entry-card[data-tone='taste'] {
+  --cat: var(--cat-taste);
+  --cat-soft: var(--cat-taste-soft);
+  --cat-ink: var(--cat-taste-ink);
+}
+
+.entry-card[data-tone='stock'] {
+  --cat: var(--cat-stock);
+  --cat-soft: var(--cat-stock-soft);
+  --cat-ink: var(--cat-stock-ink);
+}
+
+.entry-card[data-tone='safety'] {
+  --cat: var(--cat-safety);
+  --cat-soft: var(--cat-safety-soft);
+  --cat-ink: var(--cat-safety-ink);
+}
+
+.entry-card[data-tone='service'] {
+  --cat: var(--cat-service);
+  --cat-soft: var(--cat-service-soft);
+  --cat-ink: var(--cat-service-ink);
+}
+
+.entry-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 18px;
+  width: 36px;
+  height: 4px;
+  border-radius: 0 0 4px 4px;
+  background: var(--cat);
+}
+
+.entry-card__category {
+  align-self: flex-start;
+  background: var(--cat-soft);
+  color: var(--cat-ink);
+}
+
+.entry-card:hover {
+  border-color: var(--line-strong);
+}
+
+.entry-card__link {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  padding-left: 12px;
+  background: var(--surface);
+  font-size: 0.8125rem;
+  opacity: 0;
+  transition: opacity 160ms var(--ease);
+}
+
+.entry-card:hover .entry-card__link,
+.entry-card:focus-visible .entry-card__link {
+  opacity: 1;
+}
+
+/* 모서리 체계: 작은 것 10px, 카드 16~20px, 대표 덩어리(머리 띠·모달·결과)는 잎 모양 */
+.meal-plan__primary,
+.report-generate-button {
+  border-radius: var(--radius-sm);
+}
+
+.modal,
+.meal-plan__result,
+.menu-lab-result {
+  border-radius: var(--radius-leaf);
+}
+
+/* 모달 */
+.modal__close {
+  min-height: 40px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.modal__close:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.modal__section {
+  border-color: var(--line);
+  background: var(--raised);
+}
+
+.modal__section h3 {
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* 메뉴 추천 결과: 1안은 주황 테두리, 순위는 알약 모양 */
+.menu-lab-result__card:first-of-type {
+  border: 2px solid var(--accent);
+  background: var(--surface);
+}
+
+.menu-lab-result__rank {
+  display: inline-grid;
+  place-items: center;
+  min-width: 36px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.menu-lab-result__card:not(:first-of-type) .menu-lab-result__rank {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+/* 식단표: 칸 안 수치와 합계 글자 키우기 */
+.meal-plan__meta {
+  font-size: 0.8125rem;
+  color: var(--text-2);
+}
+
+.meal-plan__gauge-status {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.meal-plan__gauge--low .meal-plan__gauge-status,
+.meal-plan__gauge--high .meal-plan__gauge-status {
+  font-weight: 700;
+  color: var(--negative);
+}
+
+.meal-plan__hint,
+.meal-plan__notice {
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.meal-plan__stat dd.meal-plan__stat-note {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 899px) {
+  .page-hero {
+    grid-template-columns: minmax(0, 1fr) 64px;
+    gap: 12px;
+    padding: 18px 20px;
+  }
+
+  .page-hero__desc {
+    display: none;
+  }
+
+  .page-hero__art {
+    align-self: start;
+  }
+
+  .page-hero__title {
+    font-size: 1.5rem;
+  }
+
+  .page-hero__stats {
+    flex-wrap: nowrap;
+    gap: 16px;
+  }
+
+  .page-hero__stat dd {
+    font-size: 1.25rem;
+    white-space: nowrap;
+  }
+
+  .page-hero__stat dd span {
+    font-size: 0.8125rem;
+  }
+
+  .page-hero__stat dt {
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .entry-card__link {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  /* 가로로 넘기는 칩 줄은 오른쪽을 흐리게 해 더 있다는 걸 알려 줍니다 */
+  .category-filter,
+  .keyword-shortcuts__list {
+    -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+    mask-image: linear-gradient(90deg, #000 85%, transparent);
+    padding-right: 32px;
+  }
+}
+
+@media (max-width: 599px) {
+  .page-hero {
+    grid-template-columns: minmax(0, 1fr) 56px;
+    padding: 16px 18px;
+    border-radius: 22px 6px 22px 6px;
+  }
+}
+
+@media print {
+  html body {
+    background: #fff;
+  }
+
+  .meal-plan__table thead th,
+  .meal-plan__gauge-track,
+  .meal-plan__gauge-fill,
+  .meal-plan__gauge-band {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .meal-plan__table {
+    font-size: 9pt;
+  }
+}
+
+/* ───────── 3차 다듬기 ───────── */
+
+/* 맛·품질 묶음은 올리브: 식단표 '적정' 초록과 겹치지 않게 */
+html:root {
+  --cat-taste: #6b7a2a;
+  --cat-taste-soft: #f1f3e3;
+  --cat-taste-ink: #55611f;
+}
+
+.page-hero__note {
+  font-size: 0.8125rem;
+  color: var(--text-2);
+}
+
+/* 카드를 누를 수 있다는 단서는 늘 보이게 */
+.entry-card__link {
+  opacity: 1;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.entry-card:hover .entry-card__link,
+.entry-card:focus-visible .entry-card__link {
+  color: var(--accent-ink);
+}
+
+.meal-plan__stat dd.meal-plan__stat-note {
+  display: -webkit-box;
+  white-space: normal;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* 모바일 요일 바로가기 */
+.meal-plan__daynav {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .page-hero::after {
+    width: 160px;
+    height: 160px;
+    right: -40px;
+    bottom: -60px;
+  }
+
+  .page-hero__art {
+    align-self: center;
+    margin-top: 4px;
+  }
+
+  .entry-card__link {
+    display: block;
+    position: static;
+    padding: 0;
+    align-self: flex-end;
+  }
+
+  .result-summary {
+    flex-direction: row;
+    align-items: baseline;
+    flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 767px) {
+  .meal-plan__daynav {
+    position: sticky;
+    top: 56px;
+    z-index: 5;
+    display: flex;
+    gap: 6px;
+    margin: 0 -4px;
+    padding: 8px 4px;
+    overflow-x: auto;
+    background: var(--surface);
+  }
+
+  .meal-plan__daynav-item {
+    flex: 1 0 auto;
+    min-width: 56px;
+    min-height: 44px;
+    display: grid;
+    place-items: center;
+    gap: 0;
+    padding: 4px 8px;
+    border: 1px solid var(--field-border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text-2);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .meal-plan__daynav-item span {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .meal-plan__daynav-item:hover,
+  .meal-plan__daynav-item:focus-visible {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    outline: none;
+  }
+
+  .meal-plan__card {
+    scroll-margin-top: 128px;
+  }
+}
+
+@media print {
+  .meal-plan__daynav {
+    display: none !important;
+  }
+}
+
+/* 필터 칩 앞 색 점: 카드 색 띠와 같은 묶음 */
+.chip[data-tone]::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--cat-foreign);
+  vertical-align: 1px;
+}
+
+.chip[data-tone='taste']::before { background: var(--cat-taste); }
+.chip[data-tone='stock']::before { background: var(--cat-stock); }
+.chip[data-tone='safety']::before { background: var(--cat-safety); }
+.chip[data-tone='service']::before { background: var(--cat-service); }
+
+.chip--active[data-tone]::before {
+  background: #fff;
+}
+
+/* ───────── 4차 다듬기 ───────── */
+
+/* 상세보기는 흐름 안에: 설명을 가리지 않게 */
+.entry-card__link,
+.entry-card:hover .entry-card__link {
+  position: static;
+  margin-top: auto;
+  align-self: flex-end;
+  padding: 6px 0 0;
+  background: none;
+  font-size: 0.8125rem;
+}
+
+.entry-card__summary {
+  flex: 0 1 auto;
+  -webkit-line-clamp: 2;
+}
+
+/* 유형 신호는 칩이 주연, 띠는 조연 */
+.entry-card::before {
+  opacity: 0.7;
+}
+
+.meal-plan__daynav-item[aria-current='true'] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.meal-plan__daynav-item[aria-current='true'] span {
+  color: #fff;
+}
+
+@media (max-width: 899px) {
+  .page-hero__art {
+    justify-self: center;
+    width: calc(100% - 4px);
+    margin-right: 4px;
+  }
+}
+
+@media print {
+  .meal-plan__result {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+
+  .meal-plan__stat,
+  .meal-plan__stat:first-child {
+    background: none;
+    border: 1px solid var(--line);
+  }
+}
+
+/* 설명 자리를 두 줄로 고정해 카드 아래 여백을 고르게 */
+.entry-card__summary {
+  min-height: calc(2 * 1.55em);
+}
+
+@media (max-width: 899px) {
+  .page-hero__art {
+    width: calc(100% - 8px);
+    margin-right: 8px;
+  }
+}
