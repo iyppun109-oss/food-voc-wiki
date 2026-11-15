@@ -29,7 +29,9 @@ function normalize(value: string) {
 
 function createExpressionMatcher(expression: ForbiddenExpression): MatchableExpression {
   const normalizedKeyword = normalize(expression.keyword)
-  const regex = new RegExp(escapeRegExp(expression.keyword.trim()).replace(/\s+/g, '\\s*'), 'g')
+  // 권장 표현이 마침표로 끝나므로, 원문 구절 뒤의 마침표까지 함께 치환해 '..'이 생기지 않게 합니다.
+  const trailingDot = expression.replacement.trim().endsWith('.') ? '\\.?' : ''
+  const regex = new RegExp(`${escapeRegExp(expression.keyword.trim()).replace(/\s+/g, '\\s*')}${trailingDot}`, 'g')
 
   return {
     ...expression,

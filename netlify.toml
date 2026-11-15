@@ -1,0 +1,10 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  edge_functions = "netlify/edge-functions"
+
+# 운영자 로그인 게이트: 모든 경로를 netlify/edge-functions/auth.ts가 먼저 검사합니다.
+# 비밀번호는 Netlify 환경 변수 FOODVOC_ADMIN_PASSWORD 로만 설정합니다.
+[[edge_functions]]
+  path = "/*"
+  function = "auth"

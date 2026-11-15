@@ -678,53 +678,108 @@ const reportSentenceTemplates: Record<string, ReportSentenceTemplate> = {
 
 const defaultTemplate: ReportSentenceTemplate = reportSentenceTemplates['기타']
 
-export const REPORT_TEMPLATE_ALIASES: Array<{ type: ReportCategory; keywords: string[] }> = [
-  { type: '머리카락', keywords: ['머리카락', '헤어', '두피', 'hair'] },
-  { type: '벌레', keywords: ['벌레', '파리', '바퀴', '곤충'] },
-  {
-    type: '비닐/플라스틱',
-    keywords: ['비닐', '플라스틱', '포장', '랩', '필름', 'plastic'],
-  },
-  { type: '뼈/가시', keywords: ['뼈', '가시', '어금니', '살점', '뼈다귀'] },
-  { type: '이물 혼입', keywords: ['이물', '혼입', '이물질', 'foreign body'] },
-  { type: '품절', keywords: ['품절', '없음', '수량', '조기', '재고'] },
-  { type: '염도', keywords: ['염도', '짠', '싱겁', '간', '소금', 'salt', '짜다'] },
-  { type: '품질', keywords: ['품질', '식감', '맛', '냄새', '색상', '냉감', ...QUALITY_COOKING_STATUS_KEYWORDS] },
-  { type: '양 부족', keywords: ['양 부족', '적음', '적다', '적량', '부족', '양이'] },
-  {
-    type: '위생 불만',
-    keywords: ['위생', '청결', '먼지', '세균', '더러워', '청소'],
-  },
-  {
-    type: '직원 응대',
-    keywords: ['응대', '직원', '서비스', '안내', '설명', '문자', '전화'],
-  },
+type AliasKeyword = string | RegExp
+
+/**
+ * 유형 판정 규칙. 배열 순서가 곧 우선순위입니다.
+ * - 고위험 유형(식중독 의심, 안전사고)을 가장 먼저 판정합니다.
+ * - 한 글자 키워드(예: '간')는 '시간', '간장'에도 걸리므로 문자열 대신 정규식으로 경계를 둡니다.
+ */
+export const REPORT_TEMPLATE_ALIASES: Array<{ type: ReportCategory; keywords: AliasKeyword[] }> = [
   {
     type: '식중독 의심',
-    keywords: ['식중독', '구토', '복통', '토사', '위생', '중독', '위험'],
+    keywords: ['식중독', '구토', '복통', '설사', '토사', '메스꺼', '울렁', '배탈', '장염', '배가 아프', '배아프'],
   },
   {
     type: '안전사고',
-    keywords: ['안전사고', '치아', '파절', '파손', '치아 손상', '딱딱한 이물', '돌', '껍질', '이물 씹음', '통증'],
+    keywords: [
+      '안전사고',
+      '치아',
+      '이빨',
+      '이가 깨',
+      '파절',
+      '딱딱한 물질',
+      '딱딱한 이물',
+      '딱딱한 것',
+      '돌 씹',
+      '돌을 씹',
+      '이물 씹',
+      '다쳤',
+      '다침',
+      '화상',
+      '베임',
+      '찔림',
+    ],
+  },
+  { type: '머리카락', keywords: ['머리카락', '머리털', '헤어', '모발', 'hair'] },
+  { type: '벌레', keywords: ['벌레', '벌래', '파리', '바퀴', '곤충', '구더기', '진드기'] },
+  {
+    type: '비닐/플라스틱',
+    keywords: ['비닐', '플라스틱', '포장재', '포장지', '랩 조각', '비닐랩', '필름', '테이프', 'plastic'],
+  },
+  { type: '뼈/가시', keywords: ['뼈', '가시', '연골'] },
+  {
+    type: '이물 혼입',
+    keywords: ['이물', '혼입', '쇳조각', '철수세미', '금속 조각', '돌멩이', /돌(이|을|조각)/, 'foreign body'],
+  },
+  {
+    type: '품질',
+    keywords: [
+      ...QUALITY_COOKING_STATUS_KEYWORDS,
+      '품질',
+      '식감',
+      '냄새',
+      '쉰내',
+      '쉬었',
+      '상했',
+      '변질',
+      '눅눅',
+      '딱딱',
+      '설익',
+      '질기',
+      '비린',
+      '식었',
+      '차갑',
+      '미지근',
+    ],
+  },
+  {
+    type: '염도',
+    keywords: ['염도', '짜다', '짜요', '짜서', '짜고', '짠', /짬(?!뽕)/, '싱겁', '싱거', '소금', /(^|\s)간(이|을|은|도)?(\s|$|[.,!?])/],
+  },
+  { type: '품절', keywords: ['품절', '소진', '조기 마감', '재고 부족', '다 떨어', '떨어져서'] },
+  { type: '양 부족', keywords: ['양 부족', '양이 적', '양이 부족', '양부족', '적게', '부족', '적어요', '적음'] },
+  {
+    type: '위생 불만',
+    keywords: ['위생', '청결', '먼지', '세균', '더러', '불결', '곰팡이', '청소'],
+  },
+  {
+    type: '직원 응대',
+    keywords: ['응대', '직원', '불친절', '친절', '태도', '서비스', '반말'],
   },
 ]
 
 function normalizeText(value: string) {
-  return value.trim().toLowerCase()
+  return value.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+function matchesKeyword(normalized: string, keyword: AliasKeyword) {
+  if (keyword instanceof RegExp) return keyword.test(normalized)
+  const lower = keyword.toLowerCase()
+  return normalized.includes(lower) || normalized.replace(/\s+/g, '').includes(lower.replace(/\s+/g, ''))
+}
+
+function findAlias(value: string) {
+  const normalized = normalizeText(value)
+  if (!normalized) return undefined
+  return REPORT_TEMPLATE_ALIASES.find((entry) => entry.keywords.some((keyword) => matchesKeyword(normalized, keyword)))
 }
 
 export function getReportSentenceTemplate(vocType: string): ReportSentenceTemplate {
-  const normalized = normalizeText(vocType)
-  const matched = REPORT_TEMPLATE_ALIASES.find((entry) =>
-    entry.keywords.some((keyword) => normalized.includes(keyword.toLowerCase())),
-  )
+  const matched = findAlias(vocType)
   return matched ? reportSentenceTemplates[matched.type] : defaultTemplate
 }
 
 export function detectReportCategory(value: string): ReportCategory {
-  const normalized = normalizeText(value)
-  const matched = REPORT_TEMPLATE_ALIASES.find((entry) =>
-    entry.keywords.some((keyword) => normalized.includes(keyword.toLowerCase())),
-  )
-  return matched ? matched.type : '기타'
+  return findAlias(value)?.type ?? '기타'
 }

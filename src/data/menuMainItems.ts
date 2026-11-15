@@ -64,7 +64,7 @@ const mainTemplates: Array<Omit<MainMenuItem, 'id'>> = [
   {
     name: '김치찌개 정식',
     category: '한식',
-    mealFit: ['중식', '중식', '석식'],
+    mealFit: ['중식', '석식'],
     customerFit: ['사무직', '일반', '협력사'],
     directions: ['건강식', '균형형'],
     strengths: ['국물류로 편의성 높음', '짠맛 조절이 가능'],
@@ -72,9 +72,9 @@ const mainTemplates: Array<Omit<MainMenuItem, 'id'>> = [
     bestSides: ['무생채', '계란찜', '깍두기'],
     avoidSides: ['생채', '오징어무침', '회무침'],
     bestSoups: ['미역국', '맑은국'],
-    upgradeIdeas: ['국물 짠도 기준표 재점검'],
-    vocPrevention: ['국물 간 간격 확인', '마지막 수확물 입고 상태 점검'],
-    operationNotes: ['기준 레시피로 간 조정', '조리 중 최종 체온 확인'],
+    upgradeIdeas: ['국물 염도 기준표 재점검'],
+    vocPrevention: ['국물 간 중간 확인', '김치 입고 상태 점검'],
+    operationNotes: ['기준 레시피로 간 조정', '배식 전 국물 온도 확인'],
   },
   {
     name: '불고기 비빔 정식',
@@ -134,7 +134,7 @@ const mainTemplates: Array<Omit<MainMenuItem, 'id'>> = [
     bestSoups: ['된장국', '미역국'],
     upgradeIdeas: ['소스 분할 제공', '드레싱 추가 제공'],
     vocPrevention: ['간편 레시피 표준 사용', '기본 간 이력 정리'],
-    operationNotes: ['두부 수분 분리 확인', '조리 구간 체온 기록'],
+    operationNotes: ['두부 수분 분리 확인', '조리 구간 온도 기록'],
   },
   {
     name: '닭다리살 구이 정식',
@@ -318,33 +318,12 @@ const mainTemplates: Array<Omit<MainMenuItem, 'id'>> = [
   },
 ]
 
-export const menuMainItems: MainMenuItem[] = mainTemplates
-  .flatMap((item, index): MainMenuItem[] => {
-  const title = index + 1
-  const directionSet = item.directions as MainMenuItem['directions']
-  const base = item as Omit<MainMenuItem, 'id'>
-  return [
-    {
-      ...base,
-      id: `main-${title.toString().padStart(2, '0')}-a`,
-    },
-    {
-      ...base,
-      id: `main-${title.toString().padStart(2, '0')}-b`,
-      name: `${item.name} (추가 메뉴)`,
-      category: item.category,
-      directions: [...directionSet] as MainMenuItem['directions'],
-      strengths: [...item.strengths, '구성 대체 운영이 쉬움'],
-      operationNotes: [...item.operationNotes, '교차 라인 이동 시간 단축'],
-    },
-    {
-      ...base,
-      id: `main-${title.toString().padStart(2, '0')}-c`,
-      name: `${item.name} (업그레이드)`,
-      directions: [...directionSet, '간편 운영형'] as MainMenuItem['directions'],
-      strengths: [...item.strengths, '야간 피크 대응 용이'],
-      upgradeIdeas: [...item.upgradeIdeas, '반찬 조합 자동 추천'],
-    },
-  ]
-}) .slice(0, 30)
-
+/**
+ * 메인 메뉴 목록.
+ * 이전에는 같은 메뉴를 "(추가 메뉴)", "(업그레이드)"로 3벌 복제한 뒤 30개로 잘라
+ * 추천 1~3위가 같은 메뉴로 채워지고 11번째 이후 메뉴는 추천되지 않았습니다.
+ */
+export const menuMainItems: MainMenuItem[] = mainTemplates.map((item, index) => ({
+  ...item,
+  id: `main-${String(index + 1).padStart(2, '0')}`,
+}))

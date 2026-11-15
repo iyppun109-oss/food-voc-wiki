@@ -8,7 +8,7 @@ interface EntryModalProps {
 
 const SECTIONS: { key: keyof VocCase; label: string }[] = [
   { key: 'incident', label: '발생 내용' },
-  { key: 'customerScript', label: '고객 반응' },
+  { key: 'customerScript', label: '고객 응대 문구' },
   { key: 'onsiteAction', label: '현장 조치' },
   { key: 'rootCause', label: '원인 분석' },
   { key: 'prevention', label: '재발 방지' },
