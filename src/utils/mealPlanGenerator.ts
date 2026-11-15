@@ -7,9 +7,11 @@ import {
   soupItems,
   stewItems,
   vegItems,
+  type MealSlot,
   type PlanMenuItem,
   type Protein,
 } from '../data/mealPlanItems'
+import { nutritionOf } from '../data/mealPlanNutrition'
 
 // ───────────────────────── 타입 ─────────────────────────
 
@@ -21,8 +23,8 @@ export type PlanRow = 'rice' | 'soup' | 'main' | 'side' | 'veg' | 'kimchi'
 export const planRows: PlanRow[] = ['rice', 'soup', 'main', 'side', 'veg', 'kimchi']
 
 export const planRowLabels: Record<PlanRow, string> = {
-  rice: '밥 / 일품',
-  soup: '국 / 탕·찌개',
+  rice: '밥·일품',
+  soup: '국·찌개',
   main: '주찬',
   side: '부찬',
   veg: '무침·나물',
@@ -42,7 +44,81 @@ export interface MealPlanOptions {
   stewPerWeek: 0 | 1 | 2 | 3
   avoid: AvoidFactor[]
   preferPopular: boolean
+  /** 1식 영양 목표 */
+  target: NutritionTarget
+  /** 칸별 1인 분량(g). 열량·단백질은 100g당 수치에 이 분량을 곱해 계산합니다. */
+  portions: Record<MealSlot, number>
   seed: number
+}
+
+export type SiteType = '사무직' | '생산직' | '직접 설정'
+
+export interface NutritionTarget {
+  site: SiteType
+  kcalMin: number
+  kcalMax: number
+  proteinMin: number
+}
+
+/**
+ * 1식 목표 기본값. 한국인 영양소 섭취기준(성인)의 하루 에너지 필요추정량·단백질 권장섭취량을
+ * 세 끼로 나눈 값을 기준으로 잡은 초안이며, 화면에서 바꿀 수 있습니다.
+ */
+export const sitePresets: Record<Exclude<SiteType, '직접 설정'>, Omit<NutritionTarget, 'site'>> = {
+  사무직: { kcalMin: 700, kcalMax: 800, proteinMin: 20 },
+  생산직: { kcalMin: 850, kcalMax: 950, proteinMin: 25 },
+}
+
+/**
+ * 1인 분량 기본값(g). 단체급식에서 흔히 쓰는 배식량을 기준으로 잡은 초안이며,
+ * 사업장 기준에 맞게 화면에서 바꿀 수 있습니다.
+ */
+export const defaultPortions: Record<MealSlot, number> = {
+  rice: 250,
+  soup: 250,
+  stew: 350,
+  main: 130,
+  side: 70,
+  veg: 60,
+  kimchi: 40,
+  oneDish: 550,
+}
+
+/** 사업장 유형별 1인 분량 기본값. 생산직은 활동량을 고려해 밥·주찬·일품을 늘립니다. */
+export const sitePortions: Record<Exclude<SiteType, '직접 설정'>, Record<MealSlot, number>> = {
+  사무직: defaultPortions,
+  생산직: { rice: 300, soup: 250, stew: 400, main: 150, side: 80, veg: 60, kimchi: 40, oneDish: 650 },
+}
+
+export const portionLabels: Record<MealSlot, string> = {
+  rice: '밥',
+  soup: '국',
+  stew: '탕·찌개',
+  main: '주찬',
+  side: '부찬',
+  veg: '무침·나물',
+  kimchi: '김치',
+  oneDish: '일품',
+}
+
+export interface ItemNutrition {
+  servingG: number
+  kcal: number
+  proteinG: number
+}
+
+export type NutritionStatus = 'ok' | 'low' | 'high' | 'partial' | 'none'
+
+export interface DayNutrition {
+  kcal: number
+  proteinG: number
+  servingG: number
+  /** 영양 자료가 있는 메뉴 수 */
+  known: number
+  /** 영양 자료가 없는 메뉴명 */
+  missing: string[]
+  kcalStatus: NutritionStatus
+  proteinStatus: NutritionStatus
 }
 
 export interface PlanDay {
@@ -63,6 +139,16 @@ export interface PlanSummary {
   proteinCounts: Array<{ protein: Protein; count: number }>
   repeatedCenterMenus: string[]
   warnings: string[]
+  /** 날짜순 하루 영양 합계 */
+  dayNutrition: DayNutrition[]
+  /** 영양 자료가 모두 있는 날의 평균. 그런 날이 없으면 null */
+  avgKcal: number | null
+  avgProteinG: number | null
+  /** 영양 자료가 모두 있는 날 수 */
+  completeDays: number
+  /** 그중 열량·단백질 목표를 모두 채운 날 수 */
+  onTargetDays: number
+  nutritionKnownItems: number
 }
 
 // ───────────────────────── 난수 ─────────────────────────
@@ -190,6 +276,122 @@ function familyOf(name: string) {
   return menuFamilies.findIndex((pattern) => pattern.test(name))
 }
 
+// ───────────────────────── 영양 ─────────────────────────
+
+function round1(value: number) {
+  return Math.round(value * 10) / 10
+}
+
+/** 메뉴 하나의 1인 분량 기준 열량·단백질. 영양 자료가 없으면 null */
+export function itemNutrition(item: PlanMenuItem, portions: Record<MealSlot, number>): ItemNutrition | null {
+  const data = nutritionOf(item.name)
+  if (!data) return null
+  const servingG = portions[item.slot]
+  return {
+    servingG,
+    kcal: (data.kcal100 * servingG) / 100,
+    proteinG: (data.protein100 * servingG) / 100,
+  }
+}
+
+/** 하루 영양 합계. 자료 없는 메뉴는 합계에서 빼고 missing에 적습니다. */
+export function computeDayNutrition(day: PlanDay, options: MealPlanOptions): DayNutrition {
+  const { target, portions } = options
+  let kcal = 0
+  let proteinG = 0
+  let servingG = 0
+  let known = 0
+  const missing: string[] = []
+  dayItems(day).forEach((item) => {
+    const data = itemNutrition(item, portions)
+    if (!data) {
+      missing.push(item.name)
+      return
+    }
+    known += 1
+    kcal += data.kcal
+    proteinG += data.proteinG
+    servingG += data.servingG
+  })
+
+  const complete = missing.length === 0 && known > 0
+  let kcalStatus: NutritionStatus = 'none'
+  let proteinStatus: NutritionStatus = 'none'
+  if (known > 0) {
+    // 일부 자료가 빠진 합계는 실제보다 작으므로, 이미 넘은 경우만 확정해서 알립니다.
+    if (kcal > target.kcalMax) kcalStatus = 'high'
+    else if (!complete) kcalStatus = 'partial'
+    else kcalStatus = kcal < target.kcalMin ? 'low' : 'ok'
+
+    if (proteinG >= target.proteinMin) proteinStatus = 'ok'
+    else proteinStatus = complete ? 'low' : 'partial'
+  }
+
+  return {
+    kcal: Math.round(kcal),
+    proteinG: round1(proteinG),
+    servingG: Math.round(servingG),
+    known,
+    missing,
+    kcalStatus,
+    proteinStatus,
+  }
+}
+
+const slotAverageCache = new Map<string, { kcal: number; proteinG: number } | null>()
+
+/** 아직 고르지 않은 칸의 예상치: 그 칸 후보 메뉴들의 평균(자료 있는 메뉴만) */
+function slotAverage(row: PlanRow, type: DayType, options: MealPlanOptions) {
+  const key = `${row}|${type}|${options.season}|${JSON.stringify(options.portions)}`
+  if (slotAverageCache.has(key)) return slotAverageCache.get(key) ?? null
+  const values = poolFor(row, type, options)
+    .map((item) => itemNutrition(item, options.portions))
+    .filter((data) => data !== null)
+  const average =
+    values.length === 0
+      ? null
+      : {
+          kcal: values.reduce((sum, data) => sum + data.kcal, 0) / values.length,
+          proteinG: values.reduce((sum, data) => sum + data.proteinG, 0) / values.length,
+        }
+  slotAverageCache.set(key, average)
+  return average
+}
+
+/** 후보를 넣었을 때 하루 합계가 목표에서 얼마나 벗어날지에 따른 감점 */
+function nutritionPenalty(candidate: PlanMenuItem, ctx: ScoreContext) {
+  const { plan, dayIndex, row, options } = ctx
+  const day = plan[dayIndex]
+  const data = itemNutrition(candidate, options.portions)
+  // 자료 없는 메뉴는 합계를 확인할 수 없으므로 조금 뒤로 미룹니다.
+  if (!data) return 4
+
+  let kcal = data.kcal
+  let proteinG = data.proteinG
+  for (const other of planRows) {
+    if (other === row) continue
+    const item = day.cells[other]
+    if (item) {
+      const known = itemNutrition(item, options.portions)
+      if (!known) return 0
+      kcal += known.kcal
+      proteinG += known.proteinG
+    } else if (!isRowEmpty(day, other)) {
+      const expected = slotAverage(other, day.type, options)
+      if (!expected) return 0
+      kcal += expected.kcal
+      proteinG += expected.proteinG
+    }
+  }
+
+  const { kcalMin, kcalMax, proteinMin } = options.target
+  let penalty = 0
+  if (kcal > kcalMax) penalty += Math.min(14, (kcal - kcalMax) / 20)
+  if (kcal < kcalMin) penalty += Math.min(14, (kcalMin - kcal) / 20)
+  if (proteinG < proteinMin) penalty += Math.min(10, (proteinMin - proteinG) / 1.5)
+  return penalty
+}
+
 function scoreCandidate(candidate: PlanMenuItem, ctx: ScoreContext) {
   const { plan, dayIndex, row, options, rng } = ctx
   const day = plan[dayIndex]
@@ -285,6 +487,8 @@ function scoreCandidate(candidate: PlanMenuItem, ctx: ScoreContext) {
 
   // 밥: 탕·찌개 날과 일반 날 모두 쌀밥 비중을 높게, 잡곡밥은 번갈아
   if (candidate.slot === 'rice' && candidate.name === '쌀밥') score += 1.5
+
+  score -= nutritionPenalty(candidate, ctx)
 
   return score
 }
@@ -424,19 +628,54 @@ export function summarizePlan(plan: MealPlan): PlanSummary {
     warnings.push(`기간 내 중심 메뉴가 반복됩니다: ${repeatedCenterMenus.join(', ')}`)
   }
 
+  const { target } = plan.options
+  const dayNutrition = plan.days.map((day) => computeDayNutrition(day, plan.options))
+  dayNutrition.forEach((nutrition, index) => {
+    const day = plan.days[index]
+    const label = `${day.date}(${day.weekdayLabel})`
+    if (nutrition.kcalStatus === 'high') {
+      warnings.push(`${label} 열량이 ${nutrition.kcal}kcal로 목표 상한 ${target.kcalMax}kcal를 넘습니다.`)
+    } else if (nutrition.kcalStatus === 'low') {
+      warnings.push(`${label} 열량이 ${nutrition.kcal}kcal로 목표 하한 ${target.kcalMin}kcal에 못 미칩니다.`)
+    }
+    if (nutrition.proteinStatus === 'low') {
+      warnings.push(`${label} 단백질이 ${nutrition.proteinG}g으로 목표 ${target.proteinMin}g에 못 미칩니다.`)
+    }
+  })
+  const completeDays = dayNutrition.filter((nutrition) => nutrition.known > 0 && nutrition.missing.length === 0)
+  const average = (pick: (nutrition: DayNutrition) => number) =>
+    completeDays.length === 0
+      ? null
+      : completeDays.reduce((sum, nutrition) => sum + pick(nutrition), 0) / completeDays.length
+  const avgKcal = average((nutrition) => nutrition.kcal)
+  const avgProteinG = average((nutrition) => nutrition.proteinG)
+
   return {
     totalItems: items.length,
     preferredItems: items.filter((item) => item.preferred).length,
     proteinCounts: [...proteinMap.entries()].map(([protein, count]) => ({ protein, count })).sort((a, b) => b.count - a.count),
     repeatedCenterMenus,
     warnings,
+    dayNutrition,
+    avgKcal: avgKcal === null ? null : Math.round(avgKcal),
+    avgProteinG: avgProteinG === null ? null : round1(avgProteinG),
+    completeDays: completeDays.length,
+    onTargetDays: completeDays.filter(
+      (nutrition) => nutrition.kcalStatus === 'ok' && nutrition.proteinStatus === 'ok',
+    ).length,
+    nutritionKnownItems: dayNutrition.reduce((sum, nutrition) => sum + nutrition.known, 0),
   }
 }
 
-/** 엑셀에 붙여넣을 수 있는 탭 구분 텍스트 */
+/** 엑셀에 붙여넣을 수 있는 탭 구분 텍스트. 메뉴명 아래에 하루 열량·단백질 합계를 붙입니다. */
 export function planToTsv(plan: MealPlan) {
   const header = ['구분', ...plan.days.map((day) => `${day.date.slice(5).replace('-', '/')}(${day.weekdayLabel})`)]
   const typeRow = ['유형', ...plan.days.map((day) => day.type)]
   const rows = planRows.map((row) => [planRowLabels[row], ...plan.days.map((day) => day.cells[row]?.name ?? '-')])
-  return [header, typeRow, ...rows].map((cols) => cols.join('\t')).join('\n')
+  const totals = plan.days.map((day) => computeDayNutrition(day, plan.options))
+  const mark = (nutrition: DayNutrition, value: number) =>
+    nutrition.known === 0 ? '자료 없음' : nutrition.missing.length > 0 ? `${value} (일부 제외)` : String(value)
+  const kcalRow = ['열량(kcal)', ...totals.map((nutrition) => mark(nutrition, nutrition.kcal))]
+  const proteinRow = ['단백질(g)', ...totals.map((nutrition) => mark(nutrition, nutrition.proteinG))]
+  return [header, typeRow, ...rows, kcalRow, proteinRow].map((cols) => cols.join('\t')).join('\n')
 }

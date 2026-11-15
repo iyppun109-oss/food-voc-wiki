@@ -25,7 +25,7 @@ function listSection(title: string, lines: string[], maxLines = 3) {
   if (lines.length === 0) return null
   return (
     <section className="menu-lab-result__section">
-      <h5>{title}</h5>
+      <h4>{title}</h4>
       <ul className="menu-lab-result__list">
         {lines.slice(0, maxLines).map((line) => (
           <li key={line}>{line}</li>
@@ -38,30 +38,36 @@ function listSection(title: string, lines: string[], maxLines = 3) {
 function formatResultCard(item: MenuRecommendationItem) {
   return (
     <article className="menu-lab-result__card" key={`${item.menuName}-${item.rank}`}>
-      <h4 className="menu-lab-result__card-title">
-        메뉴 추천 {item.rank}위: {item.menuName}
-      </h4>
+      <header className="menu-lab-result__card-head">
+        <span className="menu-lab-result__rank">{item.rank}안</span>
+        <h3 className="menu-lab-result__card-title">{item.menuName}</h3>
+      </header>
 
-      {listSection('구성 예시', [
-        `메인: ${item.composition.main}`,
-        `국: ${item.composition.soup}`,
-        `찬: ${item.composition.sides.join(', ')}`,
-      ])}
+      <dl className="menu-lab-result__composition">
+        <div>
+          <dt>메인</dt>
+          <dd>{item.composition.main}</dd>
+        </div>
+        <div>
+          <dt>국</dt>
+          <dd>{item.composition.soup}</dd>
+        </div>
+        <div>
+          <dt>찬</dt>
+          <dd>{item.composition.sides.join(', ')}</dd>
+        </div>
+      </dl>
 
-      <section className="menu-lab-result__section">
-        <h5>추천 이유</h5>
-        <p>{item.reason}</p>
-      </section>
+      <p className="menu-lab-result__reason">{item.reason}</p>
 
-      {listSection('VOC 예방 포인트', item.preventionPoints, 4)}
-      {listSection('업그레이드 아이디어', item.upgradeIdeas, 3)}
-      {listSection('대체 메뉴', item.alternatives, 2)}
-      {listSection('운영 주의사항', item.operationNotes, 3)}
+      <div className="menu-lab-result__sections">
+        {listSection('VOC 예방 포인트', item.preventionPoints, 4)}
+        {listSection('운영 주의사항', item.operationNotes, 3)}
+        {listSection('업그레이드 아이디어', item.upgradeIdeas, 3)}
+        {listSection('대체 메뉴', item.alternatives, 2)}
+      </div>
 
-      <section className="menu-lab-result__section">
-        <h5>상황 제안</h5>
-        <p>{item.scenario}</p>
-      </section>
+      <p className="menu-lab-result__scenario">{item.scenario}</p>
     </article>
   )
 }
@@ -94,7 +100,7 @@ export function MenuLab() {
 
   return (
     <section className="menu-lab">
-      <h2 className="menu-lab__title">Menu Lab</h2>
+      <h1 className="menu-lab__title">메뉴 추천</h1>
       <p className="menu-lab__subtitle">식사 상황과 고객 VOC 이슈를 반영해 메뉴를 추천합니다. 식단가는 참고 조건이며, 실제 식재료 원가는 계산하지 않습니다.</p>
 
       <form className="menu-lab__form" onSubmit={handleSubmit}>
@@ -179,7 +185,7 @@ export function MenuLab() {
           </select>
         </label>
 
-        <div className="menu-lab__field">
+        <div className="menu-lab__field menu-lab__field--wide">
           <span>피하고 싶은 VOC</span>
           <div className="menu-lab__checkboxes">
             {avoidIssueOptions.map((issue) => (
@@ -201,7 +207,7 @@ export function MenuLab() {
           </div>
         </div>
 
-        <label className="menu-lab__field">
+        <label className="menu-lab__field menu-lab__field--wide">
           <span>추가 메모</span>
           <textarea
             value={form.memo}
@@ -211,14 +217,16 @@ export function MenuLab() {
           />
         </label>
 
-        <button type="submit" className="report-generate-button">
-          메뉴 추천하기
-        </button>
+        <div className="menu-lab__submit">
+          <button type="submit" className="meal-plan__primary">
+            메뉴 추천하기
+          </button>
+        </div>
       </form>
 
       {result && (
         <section className="menu-lab-result">
-          <h3 className="menu-lab-result__title">추천 결과 (최대 3개)</h3>
+          <h2 className="menu-lab-result__title">추천 결과</h2>
           <div className="menu-lab-result__chips">
             {result.scenarioSummary.slice(0, 4).map((text) => (
               <span className="menu-lab-result__chip" key={text}>
