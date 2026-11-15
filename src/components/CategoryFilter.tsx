@@ -1,4 +1,6 @@
-﻿interface CategoryFilterProps {
+import { categoryTone } from '../data/categoryTone'
+
+interface CategoryFilterProps {
   categories: { id: string; label: string }[]
   selected: string
   onSelect: (id: string) => void
@@ -29,6 +31,7 @@ export function CategoryFilter({
           aria-selected={selected === category.id}
           className={selected === category.id ? 'chip chip--active' : 'chip'}
           onClick={() => onSelect(category.id)}
+          data-tone={categoryTone[category.id] ?? 'foreign'}
         >
           {category.label}
         </button>

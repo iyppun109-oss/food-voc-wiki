@@ -7,6 +7,7 @@ import { ReportGeneratorModal } from './components/ReportGeneratorModal'
 import { MenuLab } from './components/MenuLab'
 import { MealPlanner } from './components/MealPlanner'
 import { SearchBar } from './components/SearchBar'
+import { PageHero } from './components/PageHero'
 import {
   categories,
   getCaseById,
@@ -15,6 +16,7 @@ import {
 import './shell.css'
 import './App.css'
 import './legibility.css'
+import './theme.css'
 
 /** 식판 모양 로고 표식 */
 function TrayMark() {
@@ -155,12 +157,16 @@ export default function App() {
       <main className="main">
         {activeTab === 'voc' ? (
         <>
-          <div className="page-head">
-            <h1 className="page-title">VOC 대응</h1>
-            <p className="page-meta">
-              사례 {vocCases.length}건 · 카테고리 {categories.length}개
-            </p>
-          </div>
+          <PageHero
+            tone="tomato"
+            eyebrow="현장 불만 대응"
+            title="VOC 대응"
+            description="불만 유형을 검색하면 고객 응대 문구와 현장 조치, 재발 방지까지 한 번에 확인합니다."
+            stats={[
+              { value: String(vocCases.length), unit: '건', label: '대응 사례' },
+              { value: String(categories.length), unit: '개', label: '불만 유형' },
+            ]}
+          />
 
           <section className="search-panel">
             <SearchBar

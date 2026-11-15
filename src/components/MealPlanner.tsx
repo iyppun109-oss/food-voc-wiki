@@ -1,7 +1,8 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Copy, Printer, RefreshCw, Shuffle } from 'lucide-react'
 import type { MealSlot } from '../data/mealPlanItems'
-import { nutritionOf, nutritionSource } from '../data/mealPlanNutrition'
+import { nutritionByName, nutritionOf, nutritionSource } from '../data/mealPlanNutrition'
+import { PageHero } from './PageHero'
 import {
   avoidFactorOptions,
   defaultPortions,
@@ -52,7 +53,7 @@ const initialOptions: MealPlanOptions = {
 }
 
 const statusLabel: Record<NutritionStatus, string> = {
-  ok: '목표 범위',
+  ok: '적정',
   low: '부족',
   high: '초과',
   partial: '일부 자료 없음',
@@ -176,6 +177,23 @@ function DayTotals({ nutrition, target }: { nutrition: DayNutrition; target: Nut
 export function MealPlanner() {
   const [options, setOptions] = useState<MealPlanOptions>(initialOptions)
   const [plan, setPlan] = useState<MealPlan | null>(null)
+  const [visibleDay, setVisibleDay] = useState<string | null>(null)
+
+  // 모바일 요일 카드 중 상단바·바로가기 바로 아래에 걸친 날을 바로가기에 표시
+  useEffect(() => {
+    if (!plan) return
+    const update = () => {
+      const cards = document.querySelectorAll<HTMLElement>('.meal-plan__card[id]')
+      let current: string | null = null
+      cards.forEach((card) => {
+        if (card.getBoundingClientRect().top <= 140) current = card.id.replace('plan-day-', '')
+      })
+      setVisibleDay(current ?? cards[0]?.id.replace('plan-day-', '') ?? null)
+    }
+    update()
+    window.addEventListener('scroll', update, { passive: true })
+    return () => window.removeEventListener('scroll', update)
+  }, [plan])
   const [rejected, setRejected] = useState<Record<string, string[]>>({})
   const [copyState, setCopyState] = useState<'idle' | 'done' | 'error'>('idle')
   const [showNutrition, setShowNutrition] = useState(true)
@@ -255,10 +273,17 @@ export function MealPlanner() {
 
   return (
     <section className="meal-plan">
-      <div className="page-head">
-        <h1 className="page-title">식단표</h1>
-        <p className="page-meta">평일 {options.mealLabel} · 1인 분량 기준</p>
-      </div>
+      <PageHero
+        tone="amber"
+        eyebrow={`평일 ${options.mealLabel} · 1인 분량 기준`}
+        title="식단표"
+        description="기간과 1식 영양 목표를 정하면 열량과 단백질을 맞춘 식단표를 짜고, 칸마다 바꿔 볼 수 있습니다."
+        stats={[
+          { value: `${options.target.kcalMin}–${options.target.kcalMax}`, unit: 'kcal', label: '1식 열량 목표' },
+          { value: `${options.target.proteinMin}`, unit: 'g 이상', label: '단백질 목표' },
+          { value: String(Object.keys(nutritionByName).length), unit: '개', label: '영양 계산 메뉴' },
+        ]}
+      />
 
       <form className="meal-plan__form" onSubmit={handleSubmit}>
         <fieldset className="meal-plan__group">
@@ -595,9 +620,29 @@ export function MealPlanner() {
                 </table>
               </div>
 
+              <nav className="meal-plan__daynav" aria-label={weeks.length > 1 ? `${weekIndex + 1}주차 요일로 이동` : '요일로 이동'}>
+                {week.days.map((day) => (
+                  <button
+                    key={day.date}
+                    type="button"
+                    className="meal-plan__daynav-item"
+                    aria-current={visibleDay === day.date ? 'true' : undefined}
+                    onClick={() =>
+                      document.getElementById(`plan-day-${day.date}`)?.scrollIntoView({
+                        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+                        block: 'start',
+                      })
+                    }
+                  >
+                    <span>{day.weekdayLabel}</span>
+                    {formatShortDate(day.date)}
+                  </button>
+                ))}
+              </nav>
+
               <div className="meal-plan__cards">
                 {week.days.map((day, index) => (
-                  <article key={day.date} className="meal-plan__card">
+                  <article key={day.date} id={`plan-day-${day.date}`} className="meal-plan__card">
                     <header className="meal-plan__card-header">
                       <span className="meal-plan__date">
                         {formatShortDate(day.date)} {day.weekdayLabel}

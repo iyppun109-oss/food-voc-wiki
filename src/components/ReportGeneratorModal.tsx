@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { type FormEvent } from 'react'
 import { vocCases, type VocCase } from '../data/vocCases'
 import {
@@ -372,7 +372,9 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
                 aria-haspopup="dialog"
                 aria-expanded={isDateTimePickerOpen}
               >
-                {formatDateTime(formState.occurredAt) || '발생 일시 선택'}
+                {formatDateTime(formState.occurredAt) || (
+                  <span className="report-form__placeholder">발생 일시 선택</span>
+                )}
               </button>
               {isDateTimePickerOpen && (
                 <section className="report-datetime-picker" aria-label="발생 일시 선택">

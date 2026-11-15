@@ -1,4 +1,5 @@
-﻿import type { VocCase } from '../data/vocCases'
+import type { VocCase } from '../data/vocCases'
+import { categoryTone } from '../data/categoryTone'
 
 interface EntryCardProps {
   entry: VocCase
@@ -10,6 +11,7 @@ export function EntryCard({ entry, onSelect }: EntryCardProps) {
     <button
       type="button"
       className="entry-card"
+      data-tone={categoryTone[entry.category] ?? 'foreign'}
       onClick={() => onSelect(entry.id)}
     >
       <span className="entry-card__category">{entry.category}</span>
