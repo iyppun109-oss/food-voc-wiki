@@ -14,6 +14,7 @@ import {
 } from './data/vocCases'
 import './shell.css'
 import './App.css'
+import './legibility.css'
 
 /** 식판 모양 로고 표식 */
 function TrayMark() {

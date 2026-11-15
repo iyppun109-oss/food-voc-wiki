@@ -1,0 +1,339 @@
+/*
+ * 시인성 보강 (마지막에 불러옵니다)
+ * - 회색 바탕 위에 흰 카드, 카드 안 입력칸은 진한 테두리로 칸마다 경계가 보이게 합니다.
+ * - 라벨은 진하게, 보조 설명은 한 단계 연하게. 선택된 항목은 남색 테두리 + 연한 남색 바탕.
+ */
+
+:root {
+  --bg: #f1f3f5;
+  --surface: #ffffff;
+  --raised: #f6f7f9;
+  --line: #dde1e6;
+  --line-strong: #b8c0ca;
+  --text: #15191e;
+  --text-2: #3f4852;
+  --muted: #66707b;
+  --accent: #1e3a5f;
+  --accent-soft: #e8eef5;
+  --field-bg: #ffffff;
+  --field-border: #b8c0ca;
+  --field-border-hover: #8a95a3;
+  --shadow-sm: 0 1px 2px rgb(16 24 40 / 6%);
+}
+
+body {
+  background: var(--bg);
+}
+
+/* 글꼴: select·textarea도 본문 글꼴을 따르게 (자간이 벌어져 보이던 문제) */
+select,
+textarea,
+input,
+button {
+  font: inherit;
+  letter-spacing: 0;
+}
+
+/* ── 앱 틀 ── */
+
+.side-nav {
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+}
+
+.nav-item {
+  color: var(--text-2);
+}
+
+.nav-item.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.nav-item.is-active svg {
+  color: var(--accent);
+}
+
+.top-bar {
+  background: var(--surface);
+}
+
+.page-title {
+  font-size: 1.625rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.page-meta,
+.menu-lab__subtitle {
+  color: var(--text-2);
+}
+
+/* ── 카드 ── */
+
+.search-panel,
+.menu-lab__form,
+.menu-lab-result,
+.meal-plan__form,
+.meal-plan__result,
+.entry-card {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.entry-card:hover {
+  border-color: var(--line-strong);
+}
+
+/* ── 입력칸 ── */
+
+.menu-lab__field > span,
+.search-bar__label,
+.report-form__field > span,
+.meal-plan__group legend,
+.form-section__title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.meal-plan__fields .menu-lab__field > span {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.menu-lab__field select,
+.menu-lab__field input,
+.menu-lab__field textarea,
+.search-bar__input,
+.report-form input,
+.report-form textarea,
+.report-form select {
+  min-height: 44px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--field-bg);
+  color: var(--text);
+  font-size: 0.9375rem;
+  transition: border-color 140ms var(--ease), box-shadow 140ms var(--ease);
+}
+
+.menu-lab__field textarea,
+.report-form textarea {
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+
+.menu-lab__field select:hover,
+.menu-lab__field input:hover,
+.menu-lab__field textarea:hover,
+.search-bar__input:hover {
+  border-color: var(--field-border-hover);
+}
+
+.menu-lab__field select:focus,
+.menu-lab__field input:focus,
+.menu-lab__field textarea:focus,
+.search-bar__input:focus,
+.report-form input:focus,
+.report-form textarea:focus,
+.report-form select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgb(30 58 95 / 18%);
+}
+
+::placeholder {
+  color: #8a939e;
+  opacity: 1;
+}
+
+/* ── 선택 칩(체크박스) ── */
+
+.menu-lab__checkboxes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 8px;
+}
+
+.menu-lab__checkbox {
+  justify-content: flex-start;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--field-border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.9375rem;
+}
+
+.menu-lab__checkbox:hover {
+  border-color: var(--field-border-hover);
+  background: var(--raised);
+}
+
+.menu-lab__checkbox-mark {
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--field-border-hover);
+  border-radius: 4px;
+  background: var(--surface);
+  color: transparent;
+  font-size: 0.75rem;
+}
+
+.menu-lab__checkbox--active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.menu-lab__checkbox--active .menu-lab__checkbox-mark {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.meal-plan__check input {
+  width: 18px;
+  height: 18px;
+}
+
+/* ── 검색 바로가기·카테고리 칩 ── */
+
+.chip,
+.keyword-shortcut-chip {
+  min-height: 36px;
+  border: 1px solid var(--field-border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.chip:hover,
+.keyword-shortcut-chip:hover {
+  border-color: var(--field-border-hover);
+  background: var(--raised);
+}
+
+.chip--active,
+.keyword-shortcuts .chip--active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
+.entry-card__category {
+  border: 0;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ── 폼 구역 나누기 ── */
+
+.form-section {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.form-section + .form-section {
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.form-section__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 0;
+}
+
+.form-section__hint {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.form-section__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.meal-plan__group + .meal-plan__group {
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+/* ── 버튼 ── */
+
+.meal-plan__primary {
+  min-height: 46px;
+  padding: 0 24px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.meal-plan__button {
+  border-color: var(--field-border);
+}
+
+@media (max-width: 899px) {
+  .page-title {
+    font-size: 1.375rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .menu-lab__checkboxes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .form-section__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+.menu-lab__form--sections {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+  padding: 24px;
+}
+
+.menu-lab__form--sections .menu-lab__field.form-section {
+  gap: 8px;
+}
+
+@media (max-width: 767px) {
+  .menu-lab__form--sections {
+    padding: 16px;
+  }
+}
+
+/* fieldset 범례를 일반 흐름에 두어 구분선과 겹치지 않게 */
+legend.form-section__head,
+.meal-plan__group > legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+legend.form-section__head + *,
+.meal-plan__group > legend + * {
+  clear: both;
+}
+
+@media (max-width: 767px) {
+  .meal-plan__fields--narrow {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+}
