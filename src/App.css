@@ -83,6 +83,22 @@
   justify-content: flex-end;
 }
 
+.logout-link {
+  align-self: center;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  color: inherit;
+  font-size: 0.875rem;
+  opacity: 0.8;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.logout-link:hover,
+.logout-link:focus-visible {
+  opacity: 1;
+}
+
 .main-nav-tabs {
   display: inline-flex;
   gap: 0.45rem;

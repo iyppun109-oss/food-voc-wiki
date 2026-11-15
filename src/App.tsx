@@ -123,6 +123,11 @@ export default function App() {
               VOC 보고서 작성
             </button>
           ) : null}
+          {import.meta.env.PROD ? (
+            <a className="logout-link" href="/__logout">
+              로그아웃
+            </a>
+          ) : null}
         </div>
       </header>
 
