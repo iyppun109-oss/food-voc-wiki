@@ -1469,3 +1469,34 @@
   font-weight: 500;
   color: var(--text-2);
 }
+
+/* 메뉴 추천: 강점 목록과 세 안 공통 정보 */
+.menu-lab-result__strengths {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.menu-lab-result__strengths li {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--leaf-soft, #e8f3ec);
+  color: var(--leaf-ink, #246b4c);
+  font-size: 0.8125rem;
+}
+
+.menu-lab-result__common {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px 24px;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  background: var(--raised);
+}
+
+.menu-lab-result__title:focus {
+  outline: none;
+}

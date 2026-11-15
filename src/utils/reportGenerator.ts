@@ -13,7 +13,7 @@ import {
   QUALITY_COOKING_STATUS_KEYWORDS,
   QUALITY_COOKING_STATUS_PATTERNS,
   type ReportCategory,
-} from '../data/reportSentenceTemplates'
+} from '../data/reportCategoryRules'
 import { type VocCase } from '../data/vocCases'
 import { attachJosa, joinKorean } from './koreanJosa'
 

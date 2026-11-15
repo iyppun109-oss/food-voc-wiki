@@ -547,13 +547,60 @@
   }
 }
 
+.meal-plan__basis {
+  font-size: 0.8125rem;
+  color: var(--text-2);
+}
+
+.meal-plan__basis summary {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.meal-plan__basis-table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.meal-plan__basis-table th,
+.meal-plan__basis-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+/* 식단표만 가로 A4로 인쇄합니다(다른 화면 인쇄에는 영향 없음). */
+@page plan {
+  size: A4 landscape;
+  margin: 12mm;
+}
+
+@media print {
+  .meal-plan__result {
+    page: plan;
+  }
+}
+
 @media print {
   .meal-plan__form,
   .meal-plan__actions,
   .meal-plan__swap,
   .meal-plan__notice,
+  .meal-plan__warnings,
+  .meal-plan__basis,
+  .meal-plan__daynav,
   .meal-plan .page-head {
     display: none !important;
+  }
+
+  .meal-plan__week + .meal-plan__week {
+    break-before: page;
   }
 
   .meal-plan__result {

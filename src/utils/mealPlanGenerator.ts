@@ -1,3 +1,4 @@
+import { attachJosa } from './koreanJosa'
 import {
   kimchiItems,
   mainItems,
@@ -319,11 +320,12 @@ export function computeDayNutrition(day: PlanDay, options: MealPlanOptions): Day
   let proteinStatus: NutritionStatus = 'none'
   if (known > 0) {
     // 일부 자료가 빠진 합계는 실제보다 작으므로, 이미 넘은 경우만 확정해서 알립니다.
-    if (kcal > target.kcalMax) kcalStatus = 'high'
+    // 목표 ±3%(단백질 -5%) 안은 적정으로 봅니다. 화면 경고와 같은 기준입니다.
+    if (kcal > target.kcalMax * 1.03) kcalStatus = 'high'
     else if (!complete) kcalStatus = 'partial'
-    else kcalStatus = kcal < target.kcalMin ? 'low' : 'ok'
+    else kcalStatus = kcal < target.kcalMin * 0.97 ? 'low' : 'ok'
 
-    if (proteinG >= target.proteinMin) proteinStatus = 'ok'
+    if (proteinG >= target.proteinMin * 0.95) proteinStatus = 'ok'
     else proteinStatus = complete ? 'low' : 'partial'
   }
 
@@ -363,29 +365,30 @@ function nutritionPenalty(candidate: PlanMenuItem, ctx: ScoreContext) {
   const { plan, dayIndex, row, options } = ctx
   const day = plan[dayIndex]
   const data = itemNutrition(candidate, options.portions)
-  // 자료 없는 메뉴는 합계를 확인할 수 없으므로 조금 뒤로 미룹니다.
-  if (!data) return 4
+  // 자료 없는 메뉴는 그 칸 평균값으로 추정해 계산하고, 확인할 수 없다는 점만큼 조금 뒤로 미룹니다.
+  const own = data ?? slotAverage(row, day.type, options)
+  let penalty = data ? 0 : 1.5
+  if (!own) return penalty + 2
 
-  let kcal = data.kcal
-  let proteinG = data.proteinG
+  let kcal = own.kcal
+  let proteinG = own.proteinG
   for (const other of planRows) {
     if (other === row) continue
     const item = day.cells[other]
     if (item) {
-      const known = itemNutrition(item, options.portions)
-      if (!known) return 0
+      const known = itemNutrition(item, options.portions) ?? slotAverage(other, day.type, options)
+      if (!known) continue
       kcal += known.kcal
       proteinG += known.proteinG
     } else if (!isRowEmpty(day, other)) {
       const expected = slotAverage(other, day.type, options)
-      if (!expected) return 0
+      if (!expected) continue
       kcal += expected.kcal
       proteinG += expected.proteinG
     }
   }
 
   const { kcalMin, kcalMax, proteinMin } = options.target
-  let penalty = 0
   if (kcal > kcalMax) penalty += Math.min(14, (kcal - kcalMax) / 20)
   if (kcal < kcalMin) penalty += Math.min(14, (kcalMin - kcal) / 20)
   if (proteinG < proteinMin) penalty += Math.min(10, (proteinMin - proteinG) / 1.5)
@@ -399,6 +402,9 @@ function scoreCandidate(candidate: PlanMenuItem, ctx: ScoreContext) {
   let score = rng() * 2
 
   if (options.preferPopular && candidate.preferred) score += 3
+
+  // 영양 자료 없는 메뉴는 하루 1개까지만 둡니다(그날 합계를 판정할 수 있게).
+  if (!itemNutrition(candidate, options.portions) && sameDay.some((item) => !itemNutrition(item, options.portions))) score -= 12
 
   // 반복: 기간 전체에서 사용 횟수와 가장 가까운 사용일까지의 거리
   let uses = 0
@@ -553,7 +559,8 @@ export function generateMealPlan(options: MealPlanOptions): MealPlan {
   const days: PlanDay[] = dates.map((date, index) => ({
     date: formatDate(date),
     weekdayLabel: weekdayNames[date.getDay()],
-    type: pattern[index % 5],
+    // 시작일이 월요일이 아니어도 요일 배치(수·금 일품 등)가 실제 요일을 따르게 합니다.
+    type: pattern[(date.getDay() + 6) % 7] ?? pattern[index % 5],
     cells: emptyCells(),
   }))
 
@@ -622,7 +629,7 @@ export function summarizePlan(plan: MealPlan): PlanSummary {
     const shared = centerItemsOf(day)
       .map((item) => item.protein)
       .filter((protein) => protein !== '없음' && centerItemsOf(prev).some((item) => item.protein === protein))
-    if (shared.length > 0) warnings.push(`${prev.date}와 ${day.date}의 중심 메뉴 단백질(${shared[0]})이 이어집니다.`)
+    if (shared.length > 0) warnings.push(`${attachJosa(prev.date, '과/와')} ${day.date}의 중심 메뉴 단백질(${shared[0]})이 이어집니다.`)
   })
   if (repeatedCenterMenus.length > 0) {
     warnings.push(`기간 내 중심 메뉴가 반복됩니다: ${repeatedCenterMenus.join(', ')}`)
@@ -634,12 +641,15 @@ export function summarizePlan(plan: MealPlan): PlanSummary {
     const day = plan.days[index]
     const label = `${day.date}(${day.weekdayLabel})`
     if (nutrition.kcalStatus === 'high') {
-      warnings.push(`${label} 열량이 ${nutrition.kcal}kcal로 목표 상한 ${target.kcalMax}kcal를 넘습니다.`)
+      if (nutrition.kcal > target.kcalMax * 1.03) warnings.push(`${label} 열량이 ${nutrition.kcal}kcal로 목표 상한 ${target.kcalMax}kcal를 넘습니다.`)
     } else if (nutrition.kcalStatus === 'low') {
-      warnings.push(`${label} 열량이 ${nutrition.kcal}kcal로 목표 하한 ${target.kcalMin}kcal에 못 미칩니다.`)
+      if (nutrition.kcal < target.kcalMin * 0.97) warnings.push(`${label} 열량이 ${nutrition.kcal}kcal로 목표 하한 ${target.kcalMin}kcal에 못 미칩니다.`)
+    }
+    if (nutrition.kcalStatus === 'partial' && nutrition.kcal < target.kcalMin * 0.8) {
+      warnings.push(`${label} 영양 자료 없는 메뉴(${nutrition.missing.join(', ')})가 있어 합계가 ${nutrition.kcal}kcal로 낮게 나옵니다. 실제 분량을 확인해 주세요.`)
     }
     if (nutrition.proteinStatus === 'low') {
-      warnings.push(`${label} 단백질이 ${nutrition.proteinG}g으로 목표 ${target.proteinMin}g에 못 미칩니다.`)
+      if (nutrition.proteinG < target.proteinMin * 0.95) warnings.push(`${label} 단백질이 ${nutrition.proteinG}g으로 목표 ${target.proteinMin}g에 못 미칩니다.`)
     }
   })
   const completeDays = dayNutrition.filter((nutrition) => nutrition.known > 0 && nutrition.missing.length === 0)

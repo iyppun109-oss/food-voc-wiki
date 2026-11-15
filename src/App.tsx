@@ -28,15 +28,71 @@ function TrayMark() {
   )
 }
 
-function normalizeQuery(query: string): string {
-  return query.trim().toLowerCase()
+/** 띄어쓰기를 무시하고 비교합니다('머리 카락' = '머리카락'). */
+function squash(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, '')
+}
+
+/** 같은 뜻으로 찾을 말: 검색 단어에 왼쪽 말이 있으면 오른쪽 말로도 찾습니다(단어마다 따로 적용). */
+const searchSynonyms: Array<[RegExp, string[]]> = [
+  [/짜(?!장|글|파게티|증|임)|짠|짰|짭/, ['염도', '짜다', '짜요', '짜서', '짜게', '짠맛', '짬']],
+  [/싱겁|싱거/, ['싱겁', '싱거', '염도']],
+  [/식었|식어|미지근/, ['식었', '식어', '미지근', '차갑']],
+  [/알러지|알레르기/, ['알레르기', '알러지']],
+  [/양이|적어|적게/, ['양 부족', '양이 적', '양이 부족', '적게', '제공량']],
+  [/품절|소진/, ['품절', '소진']],
+  [/불친절|응대|태도/, ['직원 응대', '불친절', '응대', '태도']],
+  [/더러|위생|청결/, ['위생', '청결', '더러']],
+  [/배탈|설사|복통|구토/, ['식중독', '배탈', '설사', '복통', '구토']],
+]
+
+/** 검색에서 버릴 군말 */
+const fillerWords = new Set(['너무', '정말', '진짜', '좀', '많이', '완전', '계속', '자꾸', '음식', '음식이', '나왔어요', '나왔다', '나옴', '나와요', '있어요', '있음', '있었어요', '해요', '했어요', '같아요', '같은', '것', '게'])
+
+/** 단어 끝 조사·어미를 뗍니다('머리카락이' → '머리카락', '불친절해요' → '불친절'). 두 글자 미만이 되면 떼지 않습니다. */
+function stem(word: string) {
+  // 조사만 뗀 경우는 한 글자 명사도 살립니다('밥이' → '밥', '국이' → '국').
+  const noParticle = word.replace(/(에서|에게|이랑|하고|이|가|은|는|을|를)$/, '')
+  if (noParticle !== word && noParticle.length >= 1) return noParticle
+  // '도'는 '온도'처럼 낱말 끝 글자일 수 있어 세 글자 이상일 때만 뗍니다.
+  if (word.length >= 3 && word.endsWith('도')) return word.slice(0, -1)
+  const stripped = word.replace(/(이에요|예요|였어요|었어요|았어요|했어요|해요|어요|아요|요|함|임|음)$/, '')
+  return stripped.length >= 2 ? stripped : word
+}
+
+/** 검색어를 단어로 나누고, 단어마다 같은 뜻 말을 붙입니다. 단어끼리는 모두 맞아야 합니다(AND). */
+function queryGroups(query: string): string[][] {
+  return query
+    .trim()
+    .split(/\s+/)
+    .map((word) => squash(word))
+    .filter((word) => word && !fillerWords.has(word))
+    .map((word) => {
+      const terms = new Set([word, stem(word)])
+      for (const [pattern, words] of searchSynonyms) {
+        if (pattern.test(word)) words.forEach((synonym) => terms.add(squash(synonym)))
+      }
+      return [...terms]
+    })
+}
+
+function matchedGroupCount(entry: (typeof vocCases)[number], groups: string[][]) {
+  const haystack = caseHaystack(entry)
+  return groups.filter((terms) => terms.some((term) => haystack.includes(term))).length
+}
+
+function caseHaystack(entry: (typeof vocCases)[number]) {
+  const categoryLabel = categories.find((c) => c.id === entry.category)?.label ?? ''
+  return squash(
+    [entry.title, categoryLabel, entry.incident, entry.customerScript, entry.onsiteAction, entry.rootCause, entry.prevention, entry.reportExample].join(' '),
+  )
 }
 
 function caseMatchesQuery(
   entry: (typeof vocCases)[number],
-  query: string,
+  groups: string[][],
 ): boolean {
-  if (!query) return true
+  if (groups.length === 0) return true
 
   const categoryLabel =
     categories.find((c) => c.id === entry.category)?.label ?? ''
@@ -52,10 +108,12 @@ function caseMatchesQuery(
     entry.reportExample,
   ]
     .join(' ')
-    .toLowerCase()
 
-  return haystack.includes(query)
+  const squashed = squash(haystack)
+  return groups.every((terms) => terms.some((term) => squashed.includes(term)))
 }
+
+const PAGE_SIZE = 30
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'voc' | 'recommend' | 'plan'>('voc')
@@ -64,7 +122,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
   const quickKeywords = ['머리카락', '애벌레', '비닐', '오징어뼈']
-  const popularKeywords = ['음식이 짜요', '품절', '양이 적어요', '위생']
+  const popularKeywords = ['짜요', '품절', '양이 적어요', '위생']
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const handleQuickSearch = (keyword: string) => {
     setSearchQuery(keyword)
   }
@@ -72,15 +131,39 @@ export default function App() {
   const selectedCase = selectedCaseId ? getCaseById(selectedCaseId) : null
 
   const filteredCases = useMemo(() => {
-    const query = normalizeQuery(searchQuery)
+    const groups = queryGroups(searchQuery)
+    const exact = squash(searchQuery)
 
-    return vocCases.filter((entry) => {
-      const matchesCategory =
-        categoryFilter === 'all' || entry.category === categoryFilter
-      const matchesSearch = caseMatchesQuery(entry, query)
-      return matchesCategory && matchesSearch
-    })
+    const inCategory = vocCases.filter((entry) => categoryFilter === 'all' || entry.category === categoryFilter)
+    let matched = inCategory.filter((entry) => caseMatchesQuery(entry, groups))
+    // 모든 단어가 맞는 사례가 없으면, 맞는 단어가 많은 순으로 보여 줍니다.
+    if (matched.length === 0 && groups.length > 1) {
+      matched = inCategory
+        .map((entry) => ({ entry, count: matchedGroupCount(entry, groups) }))
+        .filter((item) => item.count > 0)
+        .sort((a, b) => b.count - a.count)
+        .map((item) => item.entry)
+    }
+    if (!exact) return matched
+    // 검색어가 제목에 그대로 있으면 맨 위, 본문에 그대로 있으면 그다음으로 올립니다.
+    const rank = (entry: (typeof vocCases)[number]) =>
+      squash(entry.title).includes(exact) ? 0 : caseHaystack(entry).includes(exact) ? 1 : 2
+    return matched
+      .map((entry, index) => ({ entry, index, rank: rank(entry) }))
+      .sort((a, b) => a.rank - b.rank || a.index - b.index)
+      .map((item) => item.entry)
   }, [categoryFilter, searchQuery])
+
+  // 검색 조건이 바뀌면 다시 처음 30건부터 보여 줍니다.
+  const [listKey, setListKey] = useState(`${categoryFilter}|${searchQuery}`)
+  if (listKey !== `${categoryFilter}|${searchQuery}`) {
+    setListKey(`${categoryFilter}|${searchQuery}`)
+    setVisibleCount(PAGE_SIZE)
+  }
+  const visibleCases = filteredCases.slice(0, visibleCount)
+  const searchGroups = queryGroups(searchQuery)
+  const isPartialMatch =
+    searchGroups.length > 1 && filteredCases.length > 0 && !caseMatchesQuery(filteredCases[0], searchGroups)
 
   const activeCategoryLabel =
     categoryFilter === 'all'
@@ -231,7 +314,7 @@ export default function App() {
 
           <div className="result-summary" aria-live="polite">
             <p>{`검색 결과 ${filteredCases.length}건`}</p>
-            <span>{`${activeCategoryLabel}${searchQuery ? ` · "${searchQuery}" 검색` : ''}`}</span>
+            <span>{`${activeCategoryLabel}${searchQuery ? ` · "${searchQuery}" 검색` : ''}${isPartialMatch ? ' · 일부 단어만 일치' : ''}`}</span>
           </div>
 
           {filteredCases.length === 0 ? (
@@ -250,13 +333,20 @@ export default function App() {
             </div>
           ) : (
             <div className="entry-grid">
-              {filteredCases.map((entry) => (
+              {visibleCases.map((entry) => (
                 <EntryCard
                   key={entry.id}
                   entry={entry}
                   onSelect={setSelectedCaseId}
                 />
               ))}
+            </div>
+          )}
+          {filteredCases.length > visibleCases.length && (
+            <div className="entry-more">
+              <button type="button" className="meal-plan__button" onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>
+                더 보기 ({visibleCases.length}/{filteredCases.length}건)
+              </button>
             </div>
           )}
         </>

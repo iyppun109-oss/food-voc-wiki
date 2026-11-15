@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { type BudgetOption, type MenuLabInput, type MenuRecommendationItem, recommendMenus } from '../utils/menuRecommender'
 import { PageHero } from './PageHero'
@@ -60,15 +60,19 @@ function formatResultCard(item: MenuRecommendationItem) {
       </dl>
 
       <p className="menu-lab-result__reason">{item.reason}</p>
+      {item.strengths.length > 0 && (
+        <ul className="menu-lab-result__strengths" aria-label="메뉴 강점">
+          {item.strengths.map((strength) => (
+            <li key={strength}>{strength}</li>
+          ))}
+        </ul>
+      )}
 
       <div className="menu-lab-result__sections">
-        {listSection('VOC 예방 포인트', item.preventionPoints, 4)}
         {listSection('운영 주의사항', item.operationNotes, 3)}
         {listSection('업그레이드 아이디어', item.upgradeIdeas, 3)}
         {listSection('대체 메뉴', item.alternatives, 2)}
       </div>
-
-      <p className="menu-lab-result__scenario">{item.scenario}</p>
     </article>
   )
 }
@@ -76,6 +80,8 @@ function formatResultCard(item: MenuRecommendationItem) {
 export function MenuLab() {
   const [form, setForm] = useState<MenuLabInput>(initialForm)
   const [result, setResult] = useState<ReturnType<typeof recommendMenus> | null>(null)
+  const [budgetError, setBudgetError] = useState('')
+  const resultTitleRef = useRef<HTMLHeadingElement>(null)
 
   const handleAvoidToggle = (issue: AvoidIssue) => {
     setForm((prev) => {
@@ -96,7 +102,19 @@ export function MenuLab() {
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
+    if (form.budget === '직접 입력') {
+      const value = Number(form.customBudget.replace(/[^\d]/g, ''))
+      if (!value || value < 3000 || value > 50000) {
+        setBudgetError('식단가는 3,000원~50,000원 사이 숫자로 입력해 주세요.')
+        return
+      }
+    }
+    setBudgetError('')
     setResult(recommendMenus(form))
+    requestAnimationFrame(() => {
+      resultTitleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      resultTitleRef.current?.focus({ preventScroll: true })
+    })
   }
 
   return (
@@ -156,15 +174,22 @@ export function MenuLab() {
             <span>직접 입력 단가</span>
             <input
               type="number"
-              min={7000}
-              max={30000}
+              min={3000}
+              max={50000}
               step={100}
               value={form.customBudget}
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, customBudget: event.target.value }))
               }
               placeholder="예: 10000"
+              aria-invalid={Boolean(budgetError)}
+              aria-describedby={budgetError ? 'menu-budget-error' : undefined}
             />
+            {budgetError && (
+              <span id="menu-budget-error" className="meal-plan__field-error" role="alert">
+                {budgetError}
+              </span>
+            )}
           </label>
         ) : null}
 
@@ -246,14 +271,30 @@ export function MenuLab() {
 
       {result && (
         <section className="menu-lab-result">
-          <h2 className="menu-lab-result__title">추천 결과</h2>
-          <div className="menu-lab-result__chips">
-            {result.scenarioSummary.slice(0, 4).map((text) => (
-              <span className="menu-lab-result__chip" key={text}>
-                {text}
-              </span>
-            ))}
-          </div>
+          <h2 className="menu-lab-result__title" ref={resultTitleRef} tabIndex={-1}>
+            추천 결과
+          </h2>
+          {result.notes.map((note) => (
+            <p className="meal-plan__notice" key={note}>
+              {note}
+            </p>
+          ))}
+          {result.scenarioSummary.length > 0 && (
+            <div className="menu-lab-result__chips">
+              {result.scenarioSummary.slice(0, 4).map((text) => (
+                <span className="menu-lab-result__chip" key={text}>
+                  {text}
+                </span>
+              ))}
+            </div>
+          )}
+          {(result.preventionPoints.length > 0 || result.watchSigns.length > 0 || result.scenarios.length > 0) && (
+            <div className="menu-lab-result__common">
+              {listSection('고르신 VOC 예방 포인트 (세 안 공통)', result.preventionPoints, 4)}
+              {listSection('이런 신호가 보이면 바로 점검', result.watchSigns, 4)}
+              {listSection('운영 시나리오', result.scenarios, 2)}
+            </div>
+          )}
           <div className="menu-lab-result__grid">{result.recommendations.map((item) => formatResultCard(item))}</div>
         </section>
       )}

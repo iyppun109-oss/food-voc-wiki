@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { type FormEvent } from 'react'
 import { AlertTriangle, Check, CheckCircle2, Copy, Info, RotateCcw, Wand2 } from 'lucide-react'
 import { vocCases, type VocCase } from '../data/vocCases'
@@ -18,6 +18,7 @@ import {
 } from '../utils/reportGenerator'
 import { checkInputConsistency, checkReportQuality, type QualityIssue } from '../utils/reportQuality'
 import { applyRecommendedExpressions, checkForbiddenExpressions } from '../utils/reportSafetyChecker'
+import { useModalFocus } from '../utils/useModalFocus'
 import '../report.css'
 
 interface ReportGeneratorModalProps {
@@ -150,24 +151,12 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
     setIsDateTimePickerOpen(false)
   }
 
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    closeButtonRef.current?.focus()
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      if (isDateTimePickerOpen) {
-        setIsDateTimePickerOpen(false)
-        return
-      }
-      onClose()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.body.style.overflow = previousOverflow
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isDateTimePickerOpen, onClose])
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useModalFocus(dialogRef, closeButtonRef, onClose, () => {
+    if (!isDateTimePickerOpen) return false
+    setIsDateTimePickerOpen(false)
+    return true
+  })
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -218,7 +207,7 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
         if (event.target === event.currentTarget) onClose()
       }}
     >
-      <div className="modal report-modal" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
+      <div ref={dialogRef} className="modal report-modal" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
         <header className="modal__header">
           <div>
             <h2 id="report-modal-title" className="modal__title">

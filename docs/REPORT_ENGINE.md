@@ -25,7 +25,7 @@
 
 | 파일 | 역할 |
 |---|---|
-| `src/data/reportSentenceTemplates.ts` | 유형 판정 규칙(`REPORT_TEMPLATE_ALIASES`). 배열 순서가 우선순위이고, 고위험 유형을 먼저 봅니다. `detectReportCategoryDetailed`가 근거 단어와 함께 걸린 다른 유형도 돌려줍니다. |
+| `src/data/reportCategoryRules.ts` | 유형 판정 규칙(`REPORT_TEMPLATE_ALIASES`). 배열 순서가 우선순위이고, 고위험 유형을 먼저 봅니다. `detectReportCategoryDetailed`가 근거 단어와 함께 걸린 다른 유형도 돌려줍니다. |
 | `src/utils/reportGenerator.ts` | 유형별 지식(`knowledge`)과 세 문서 생성 |
 | `src/utils/reportQuality.ts` | 생성 결과 점검. 화면의 '작성 점검'과 자동 점검이 같은 규칙을 씁니다. |
 | `src/utils/koreanJosa.ts` | 조사(을/를, 이/가 …)와 목록 잇기('A와 B', 'A, B 및 C') |
@@ -46,7 +46,7 @@
 
 새 유형은 다음 순서로 추가합니다.
 
-1. `reportSentenceTemplates.ts`의 `ReportCategory`와 `REPORT_TEMPLATE_ALIASES`에 넣습니다.
+1. `reportCategoryRules.ts`의 `ReportCategory`와 `REPORT_TEMPLATE_ALIASES`에 넣습니다.
 2. `reportGenerator.ts`의 `knowledge`와 `reportCategoryOptions`에 넣습니다.
 3. `reportQuality.ts`의 `categorySignature`에 넣습니다.
 4. `scripts/checkReports.ts`의 `keywordFor`와 판정 사례에 넣습니다.

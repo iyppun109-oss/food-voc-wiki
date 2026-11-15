@@ -12,11 +12,10 @@ export function CategoryFilter({
   onSelect,
 }: CategoryFilterProps) {
   return (
-    <div className="category-filter" role="tablist" aria-label="카테고리 필터">
+    <div className="category-filter" role="group" aria-label="카테고리 필터">
       <button
         type="button"
-        role="tab"
-        aria-selected={selected === 'all'}
+        aria-pressed={selected === 'all'}
         className={selected === 'all' ? 'chip chip--active' : 'chip'}
         onClick={() => onSelect('all')}
       >
@@ -27,8 +26,7 @@ export function CategoryFilter({
         <button
           key={category.id}
           type="button"
-          role="tab"
-          aria-selected={selected === category.id}
+          aria-pressed={selected === category.id}
           className={selected === category.id ? 'chip chip--active' : 'chip'}
           onClick={() => onSelect(category.id)}
           data-tone={categoryTone[category.id] ?? 'foreign'}

@@ -33,6 +33,8 @@ export interface MenuRecommendationItem {
   category: string
   highlights: string[]
   reason: string
+  /** 메뉴 자체의 강점(짧은 명사구) */
+  strengths: string[]
   composition: {
     main: string
     soup: string
@@ -42,13 +44,25 @@ export interface MenuRecommendationItem {
   upgradeIdeas: string[]
   operationNotes: string[]
   alternatives: string[]
-  scenario: string
 }
 
 export interface MenuRecommendationResult {
+  /** 조건끼리 부딪혀 점수를 조정한 경우의 안내 */
+  notes: string[]
   scenarioSummary: string[]
+  /** 고른 VOC에 대한 예방 포인트(세 안에 공통이라 한 번만 보여 줌) */
+  preventionPoints: string[]
+  /** 이런 신호가 보이면 바로 점검할 항목(관찰 사실이 아니라 점검 기준) */
+  watchSigns: string[]
+  /** 운영 시나리오 문장 */
+  scenarios: string[]
   recommendations: MenuRecommendationItem[]
 }
+
+/** 국물이 있는 메인: 따로 국을 붙이지 않습니다. */
+const soupyMain = /(국|찌개|짬뽕|탕|라멘|우동|국수|전골)/
+/** 시간이 지나면 붇거나 식으면 질이 크게 떨어지는 메뉴 */
+const timeSensitiveMain = /(짬뽕|국수|우동|라면|라멘|면|튀김|돈가스)/
 
 type BudgetTier = 'economy' | 'standard'
 
@@ -105,7 +119,12 @@ function normalizeAvoidIssues(values: AvoidIssue[]): AvoidIssue[] {
 }
 
 function detectMemoRisks(memo: string): VocRisk[] {
-  const text = memo.trim()
+  // '짜장면이 맛있었어요'처럼 칭찬한 구절은 판정에서 뺍니다.
+  const text = memo
+    .split(/[\n,.!?]|그리고|근데|하지만|지만|는데|은데/)
+    .filter((clause) => !/(맛있|좋았|좋아요|괜찮|만족)/.test(clause))
+    .join(' ')
+    .trim()
   if (!text) return []
 
   const result = new Set<VocRisk>()
@@ -113,10 +132,10 @@ function detectMemoRisks(memo: string): VocRisk[] {
   if (/품절|없어짐|안 들어옴/.test(text)) {
     result.add('품절')
   }
-  if (/양 부족|부족|적게/.test(text)) {
+  if (/양 부족|양이 (적|부족)|적게|모자/.test(text)) {
     result.add('양 부족')
   }
-  if (/짠|염도|간이 강|짠맛/.test(text)) {
+  if (/짜(?!장|글|파게티|증)|짠|짰|짭|염도|간이 (강|세|쎄)|싱겁/.test(text)) {
     result.add('염도')
   }
   if (/느끼|기름|기름진/.test(text)) {
@@ -134,7 +153,10 @@ function detectMemoRisks(memo: string): VocRisk[] {
   if (/위생|청결|불결|위생관리/.test(text)) {
     result.add('위생')
   }
-  if (/응대|설명|불편|불친절|문의/.test(text)) {
+  if (/불친절|직원|응대|태도/.test(text)) {
+    result.add('직원 응대')
+  }
+  if (/설명|안내|문의|불편/.test(text)) {
     result.add('고객 불편')
   }
 
@@ -173,7 +195,10 @@ function scoreMain(menu: MainMenuItem, input: MenuLabInput, risks: VocRisk[]) {
   if (menu.mealFit.includes(input.mealType)) score += 4
   if (menu.customerFit.includes(input.customerType)) score += 3
   if (menu.directions.includes(input.direction)) score += 3
-  if (budgetTier === 'standard' && menu.strengths.length >= 4) score += 2
+  // 단가: 기본 단가 이하는 가성비 메뉴, 높은 단가는 프리미엄 메뉴를 우선합니다.
+  if (budgetTier === 'economy' && menu.directions.includes('가성비')) score += 2
+  if (budgetTier === 'economy' && menu.directions.includes('프리미엄')) score -= 2
+  if (budgetTier === 'standard' && menu.directions.includes('프리미엄')) score += 2
 
   for (const risk of risks) {
     if (menu.risks.includes(risk)) {
@@ -182,6 +207,10 @@ function scoreMain(menu: MainMenuItem, input: MenuLabInput, risks: VocRisk[]) {
       score += 1
     }
   }
+
+  // 야식·보온 지연·대기시간 조건에서는 붇거나 식기 쉬운 메뉴를 낮춥니다.
+  const timeRisk = input.mealType === '야식' || risks.includes('보온 지연') || risks.includes('대기시간')
+  if (timeRisk && timeSensitiveMain.test(menu.name)) score -= 8
 
   return score
 }
@@ -274,7 +303,7 @@ function selectSides(menu: MainMenuItem, risks: VocRisk[], usedElsewhere: Set<st
   return pickTop(selected, 3)
 }
 
-function selectSoups(menu: MainMenuItem, risks: VocRisk[], usedElsewhere: Set<string>) {
+function selectSoups(menu: MainMenuItem, risks: VocRisk[], usedElsewhere: Set<string>, mealType: MealType) {
   const mainTokens = new Set(tokensOf(menu.name))
   const compatible = menuSoupItems.filter((soup) => !tokensOf(soup.name).some((token) => mainTokens.has(token)))
   // 다른 추천안에서 이미 쓴 국은 대안이 있는 한 제외해 3개 안의 국이 겹치지 않게 합니다.
@@ -285,6 +314,8 @@ function selectSoups(menu: MainMenuItem, risks: VocRisk[], usedElsewhere: Set<st
       if (menu.bestSoups.includes(soup.name)) score += 4
       if (!soup.risks.some((risk) => risks.includes(risk))) score += 2
       if (risks.includes('염도') && soup.roles.includes('담백')) score += 1
+      // 조식에는 무거운 찌개·탕보다 맑은 국을 우선합니다.
+      if (mealType === '조식' && /(찌개|탕|전골)/.test(soup.name)) score -= 4
       return { soup, score }
     })
     .sort((a, b) => b.score - a.score || a.soup.name.localeCompare(b.soup.name))
@@ -302,28 +333,25 @@ function getRiskPreventionLines(risks: VocRisk[]) {
   return dedupeText(lines, 4)
 }
 
-function getOperationLines(menu: MainMenuItem, risks: VocRisk[]) {
-  const fromRisk = risks
-    .map((risk) => menuVocRiskRuleMap[risk]?.warningSigns)
-    .filter((lines): lines is string[] => Boolean(lines))
-    .flat()
-
-  return dedupeText([...menu.operationNotes, ...fromRisk], 3)
+function getWatchSigns(risks: VocRisk[]) {
+  return dedupeText(
+    risks.flatMap((risk) => menuVocRiskRuleMap[risk]?.warningSigns ?? []).map((line) => line.replace(/(됩니다|합니다|입니다|보입니다)\.$/, (m) => m)),
+    4,
+  )
 }
 
-function getUpgradeIdeas(menu: MainMenuItem, risks: VocRisk[]) {
-  const fromRisk = risks
-    .map((risk) => menuVocRiskRuleMap[risk])
-    .filter((rule): rule is MenuVocRiskRule => Boolean(rule))
-    .flatMap((rule) => rule.preventionTips)
+function getOperationLines(menu: MainMenuItem) {
+  return dedupeText(menu.operationNotes, 3)
+}
 
-  return dedupeText([...menu.upgradeIdeas, ...fromRisk], 3)
+function getUpgradeIdeas(menu: MainMenuItem) {
+  return dedupeText(menu.upgradeIdeas, 3)
 }
 
 function buildComposition(menu: MainMenuItem, sideNames: string[], soupName: string) {
   return {
     main: menu.name,
-    soup: soupName || '국/탕',
+    soup: soupName || '따로 없음(국물 메뉴)',
     sides: dedupeText(sideNames, 3),
   }
 }
@@ -334,19 +362,24 @@ function buildAlternatives(mainItems: MainMenuItem[], excludedNames: Set<string>
   return names.slice(offset * 2, offset * 2 + 2)
 }
 
-function buildReason(menu: MainMenuItem, risks: VocRisk[]) {
-  const strengths = menu.strengths.length > 0 ? menu.strengths.join(', ') : '구성이 무난함'
-  const riskReason = risks
-    .map((risk) => menuVocRiskRuleMap[risk]?.description)
-    .filter((value): value is string => typeof value === 'string')
-  const avoided = risks.filter((risk) => !menu.risks.includes(risk))
-  const riskLine =
-    avoided.length > 0
-      ? `선택하신 VOC 중 ${avoided.join(', ')} 위험이 상대적으로 낮은 메뉴입니다.`
-      : (riskReason[0] ?? '')
-  return [`${attachJosa(menu.name, '은/는')} 다음 강점이 있어 추천합니다: ${strengths}.`, riskLine]
-    .filter(Boolean)
-    .join(' ')
+/** 메뉴가 직접 낮출 수 있는 VOC만 이유로 씁니다(직원 응대·고객 불편은 메뉴와 무관). */
+const menuControllableRisks: VocRisk[] = ['품절', '양 부족', '염도', '느끼함', '대기시간', '보온 지연', '이물 혼입', '위생']
+
+function buildReason(menu: MainMenuItem, input: MenuLabInput, risks: VocRisk[]) {
+  const fits: string[] = []
+  if (menu.mealFit.includes(input.mealType)) fits.push(input.mealType)
+  if (menu.customerFit.includes(input.customerType) && input.customerType !== '일반') fits.push(`${input.customerType} 고객`)
+  if (menu.directions.includes(input.direction)) fits.push(`'${input.direction}' 방향`)
+  const fitLine = fits.length > 0 ? `${attachJosa(menu.name, '은/는')} ${fits.join(', ')}에 잘 맞는 메뉴입니다.` : `${attachJosa(menu.name, '은/는')} 조건에 무난하게 맞는 메뉴입니다.`
+  // 면·튀김류는 시간이 지나면 붇거나 눅눅해지므로 보온 지연·대기시간에 약한 메뉴로 봅니다.
+  const isWeakTo = (risk: VocRisk) =>
+    menu.risks.includes(risk) || ((risk === '보온 지연' || risk === '대기시간') && timeSensitiveMain.test(menu.name))
+  const avoided = risks.filter((risk) => menuControllableRisks.includes(risk) && !isWeakTo(risk))
+  const weak = risks.filter((risk) => menuControllableRisks.includes(risk) && isWeakTo(risk))
+  const lines = [fitLine]
+  if (avoided.length > 0) lines.push(`고르신 VOC 중 ${avoided.join(', ')} 우려가 적은 편입니다.`)
+  if (weak.length > 0) lines.push(`다만 ${weak.join(', ')}에는 주의가 필요합니다.`)
+  return lines.join(' ')
 }
 
 function dedupeMenus(items: MainMenuItem[]) {
@@ -367,6 +400,9 @@ export function recommendMenus(input: MenuLabInput): MenuRecommendationResult {
     scenarioRules.flatMap((rule) => rule.strategy),
     4,
   )
+  const scenarios = dedupeText(scenarioRules.map((rule) => rule.scenario), 2)
+  const preventionPoints = getRiskPreventionLines(avoidRisks)
+  const watchSigns = getWatchSigns(avoidRisks)
 
   const ranked = dedupeMenus(menuMainItems)
     .map((menu) => ({ menu, score: scoreMain(menu, input, avoidRisks) }))
@@ -382,34 +418,39 @@ export function recommendMenus(input: MenuLabInput): MenuRecommendationResult {
   const usedSoups = new Set<string>()
 
   const recommendations = topMenus.map((menu, index) => {
-    const selectedSoup = selectSoups(menu, avoidRisks, usedSoups)
-    const selectedSides = selectSides(menu, avoidRisks, usedSides, selectedSoup.name)
+    const hasOwnSoup = soupyMain.test(menu.name)
+    const selectedSoup = hasOwnSoup ? null : selectSoups(menu, avoidRisks, usedSoups, input.mealType)
+    const selectedSides = selectSides(menu, avoidRisks, usedSides, selectedSoup?.name ?? '')
     selectedSides.forEach((side) => usedSides.add(side.name))
-    usedSoups.add(selectedSoup.name)
-    const preventionPoints = getRiskPreventionLines(avoidRisks)
-    const upgradeIdeas = getUpgradeIdeas(menu, avoidRisks)
-    const operationNotes = getOperationLines(menu, avoidRisks)
-    const scenarioText =
-      scenarioRules[index % Math.max(1, scenarioRules.length)]?.scenario ??
-      '상황에 맞춰 제공량·간 조정 기준을 미리 고정해 운영 안정성을 확보합니다.'
+    if (selectedSoup) usedSoups.add(selectedSoup.name)
 
     return {
       rank: index + 1,
       menuName: menu.name,
       category: menu.category,
       highlights: scenarioSummary,
-      reason: buildReason(menu, avoidRisks),
+      reason: buildReason(menu, input, avoidRisks),
+      strengths: menu.strengths,
       composition: buildComposition(menu, selectedSides.map((item) => item.name), selectedSoup?.name ?? ''),
       preventionPoints,
-      upgradeIdeas,
+      upgradeIdeas: getUpgradeIdeas(menu),
       alternatives: buildAlternatives(ranked, recommendedNames, index),
-      operationNotes,
-      scenario: scenarioText,
+      operationNotes: getOperationLines(menu),
     }
   })
 
+  const notes: string[] = []
+  const budgetValue = parseBudgetValue(input.budget, input.customBudget)
+  if (input.direction === '프리미엄' && detectBudgetTier(budgetValue) === 'economy') {
+    notes.push(`식단가 ${budgetValue.toLocaleString('ko-KR')}원은 프리미엄 메뉴를 운영하기 빠듯해, 단가에 맞는 메뉴 위주로 골랐습니다.`)
+  }
+
   return {
+    notes,
     scenarioSummary,
+    preventionPoints,
+    watchSigns,
+    scenarios,
     recommendations,
   }
 }

@@ -267,7 +267,7 @@ const mainTemplates: Array<Omit<MainMenuItem, 'id'>> = [
     bestSides: ['무생채', '계란찜', '김치볶음'],
     avoidSides: ['고추기름많은반찬', '오징어무침'],
     bestSoups: ['맑은국', '두부된장국'],
-    upgradeIdeas: ['추가 반찬 1종 준비', '접수 창구 공지 강화'],
+    upgradeIdeas: ['추가 반찬 1종 준비', '장조림 국물 별도 제공'],
     vocPrevention: ['조리 완료량 공유', '배식 순서 통제'],
     operationNotes: ['소스 간 기준 기록', '최종 조리상태 점검'],
   },

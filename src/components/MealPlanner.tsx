@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Copy, Printer, RefreshCw, Shuffle } from 'lucide-react'
 import type { MealSlot } from '../data/mealPlanItems'
 import { nutritionByName, nutritionOf, nutritionSource } from '../data/mealPlanNutrition'
@@ -50,6 +50,26 @@ const initialOptions: MealPlanOptions = {
   target: { site: '사무직', ...sitePresets.사무직 },
   portions: defaultPortions,
   seed: 1,
+}
+
+/** 1인 분량 최소값(g). 이보다 작으면 입력 오류로 봅니다. */
+const minPortion: Record<MealSlot, number> = {
+  rice: 100,
+  soup: 100,
+  stew: 150,
+  main: 50,
+  side: 30,
+  veg: 30,
+  kimchi: 20,
+  oneDish: 200,
+}
+
+function validationError(options: MealPlanOptions) {
+  if (!options.startDate) return '시작일을 골라 주세요.'
+  if (options.target.kcalMin >= options.target.kcalMax) return '열량 하한이 상한보다 작아야 합니다.'
+  const low = (Object.keys(minPortion) as MealSlot[]).filter((slot) => (options.portions[slot] ?? 0) < minPortion[slot])
+  if (low.length > 0) return `1인 분량이 너무 작습니다: ${low.map((slot) => `${portionLabels[slot]} ${minPortion[slot]}g 이상`).join(', ')}`
+  return ''
 }
 
 const statusLabel: Record<NutritionStatus, string> = {
@@ -197,8 +217,15 @@ export function MealPlanner() {
   const [rejected, setRejected] = useState<Record<string, string[]>>({})
   const [copyState, setCopyState] = useState<'idle' | 'done' | 'error'>('idle')
   const [showNutrition, setShowNutrition] = useState(true)
+  const [replaceNotice, setReplaceNotice] = useState('')
+  const resultTitleRef = useRef<HTMLHeadingElement>(null)
 
   const summary = useMemo(() => (plan ? summarizePlan(plan) : null), [plan])
+  const basisRows = useMemo(() => {
+    if (!plan) return []
+    const names = [...new Set(plan.days.flatMap((day) => Object.values(day.cells).filter(Boolean).map((item) => item!.name)))]
+    return names.sort((a, b) => a.localeCompare(b, 'ko')).map((name) => ({ name, source: nutritionOf(name) }))
+  }, [plan])
 
   const weeks = useMemo(() => {
     if (!plan) return []
@@ -209,16 +236,24 @@ export function MealPlanner() {
     return result
   }, [plan])
 
-  const runGenerate = (next: MealPlanOptions) => {
+  const runGenerate = (next: MealPlanOptions, scroll = false) => {
+    if (validationError(next)) return
     setOptions(next)
     setPlan(generateMealPlan(next))
     setRejected({})
     setCopyState('idle')
+    setReplaceNotice('')
+    if (scroll) {
+      requestAnimationFrame(() => {
+        resultTitleRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        resultTitleRef.current?.focus({ preventScroll: true })
+      })
+    }
   }
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
-    runGenerate({ ...options, seed: 1 })
+    runGenerate({ ...options, seed: 1 }, true)
   }
 
   const handleRegenerate = () => runGenerate({ ...options, seed: options.seed + 1 })
@@ -228,7 +263,13 @@ export function MealPlanner() {
     const key = `${dayIndex}-${row}`
     const current = plan.days[dayIndex].cells[row]
     const excluded = [...(rejected[key] ?? []), ...(current ? [current.id] : [])]
-    setPlan(replaceCell(plan, dayIndex, row, excluded))
+    const next = replaceCell(plan, dayIndex, row, excluded)
+    if (current && next.days[dayIndex].cells[row]?.id === current.id) {
+      setReplaceNotice(`${plan.days[dayIndex].date} ${planRowLabels[row]} 칸은 조건에 맞는 다른 메뉴가 더 없습니다. '다른 조합'으로 전체를 다시 만들어 보세요.`)
+      return
+    }
+    setReplaceNotice('')
+    setPlan(next)
     setRejected((prev) => ({ ...prev, [key]: excluded }))
     setCopyState('idle')
   }
@@ -269,6 +310,7 @@ export function MealPlanner() {
   }
 
   const targetInvalid = options.target.kcalMin >= options.target.kcalMax
+  const formError = validationError(options)
   const target = plan?.options.target
 
   return (
@@ -442,7 +484,7 @@ export function MealPlanner() {
                 <input
                   type="number"
                   inputMode="numeric"
-                  min={0}
+                  min={minPortion[slot]}
                   step={10}
                   value={options.portions[slot]}
                   onChange={(event) => setPortion(slot, event.target.value)}
@@ -476,7 +518,12 @@ export function MealPlanner() {
         </fieldset>
 
         <div className="meal-plan__submit">
-          <button type="submit" className="meal-plan__primary" disabled={targetInvalid}>
+          {formError && !targetInvalid && (
+            <p className="meal-plan__field-error" role="alert">
+              {formError}
+            </p>
+          )}
+          <button type="submit" className="meal-plan__primary" disabled={Boolean(formError)}>
             식단표 만들기
           </button>
         </div>
@@ -485,7 +532,7 @@ export function MealPlanner() {
       {plan && summary && target && (
         <section className="meal-plan__result" aria-live="polite">
           <div className="meal-plan__toolbar">
-            <h2 className="meal-plan__result-title">
+            <h2 className="meal-plan__result-title" ref={resultTitleRef} tabIndex={-1}>
               {plan.options.mealLabel} 식단표 · {formatShortDate(plan.days[0].date)}~
               {formatShortDate(plan.days[plan.days.length - 1].date)}
             </h2>
@@ -494,7 +541,7 @@ export function MealPlanner() {
                 <input type="checkbox" checked={showNutrition} onChange={() => setShowNutrition((prev) => !prev)} />
                 분량·영양 표시
               </label>
-              <button type="button" className="meal-plan__button" onClick={handleRegenerate}>
+              <button type="button" className="meal-plan__button" onClick={handleRegenerate} disabled={Boolean(formError)} title={formError || undefined}>
                 <Shuffle size={16} strokeWidth={1.5} aria-hidden="true" />
                 다른 조합
               </button>
@@ -508,6 +555,11 @@ export function MealPlanner() {
               </button>
             </div>
           </div>
+          {replaceNotice && (
+            <p className="meal-plan__notice" role="status">
+              {replaceNotice}
+            </p>
+          )}
           {copyState === 'error' && (
             <p className="meal-plan__field-error" role="alert">
               복사하지 못했습니다. 표를 직접 선택해 복사해 주세요
@@ -679,10 +731,30 @@ export function MealPlanner() {
           <p className="meal-plan__hint">
             열량·단백질은 {nutritionSource.name}
             {nutritionSource.version ? ` ${nutritionSource.version}판` : ''}의 100g당 수치에 위에서 정한 1인 분량을 곱한
-            값입니다. 메뉴명이 DB와 다르면 가장 가까운 음식의 수치를 썼고, 수치 위에 마우스를 올리면 어떤 음식인지
-            보입니다. 실제 레시피에 따라 달라지므로 영양 표시에 쓰기 전에 확인해 주세요. "보충"은 만족도 평가 자료가 없는
-            메뉴입니다.
+            값입니다. 메뉴명이 DB와 다르면 가장 가까운 음식의 수치를 썼습니다(아래 '영양 계산 근거'에서 확인). 실제
+            레시피에 따라 달라지므로 영양 표시에 쓰기 전에 확인해 주세요. "보충"은 만족도 평가 자료가 없는 메뉴입니다.
           </p>
+          <details className="meal-plan__basis">
+            <summary>영양 계산 근거 보기 (메뉴별 식약처 DB 음식명)</summary>
+            <table className="meal-plan__basis-table">
+              <thead>
+                <tr>
+                  <th scope="col">식단 메뉴</th>
+                  <th scope="col">DB 음식명</th>
+                  <th scope="col">100g당 열량·단백질</th>
+                </tr>
+              </thead>
+              <tbody>
+                {basisRows.map((row) => (
+                  <tr key={row.name}>
+                    <td>{row.name}</td>
+                    <td>{row.source ? `${row.source.dbName} (${row.source.basis})` : '자료 없음'}</td>
+                    <td>{row.source ? `${Math.round(row.source.kcal100)}kcal · ${row.source.protein100.toFixed(1)}g` : '–'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </details>
         </section>
       )}
     </section>
