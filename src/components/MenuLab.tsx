@@ -103,7 +103,12 @@ export function MenuLab() {
       <h1 className="menu-lab__title">메뉴 추천</h1>
       <p className="menu-lab__subtitle">식사 상황과 고객 VOC 이슈를 반영해 메뉴를 추천합니다. 식단가는 참고 조건이며, 실제 식재료 원가는 계산하지 않습니다.</p>
 
-      <form className="menu-lab__form" onSubmit={handleSubmit}>
+      <form className="menu-lab__form menu-lab__form--sections" onSubmit={handleSubmit}>
+        <fieldset className="form-section">
+          <legend className="form-section__head">
+            <span className="form-section__title">식사 조건</span>
+          </legend>
+          <div className="form-section__grid">
         <label className="menu-lab__field">
           <span>식사 구분</span>
           <select
@@ -184,9 +189,14 @@ export function MenuLab() {
             ))}
           </select>
         </label>
+          </div>
+        </fieldset>
 
-        <div className="menu-lab__field menu-lab__field--wide">
-          <span>피하고 싶은 VOC</span>
+        <fieldset className="form-section">
+          <legend className="form-section__head">
+            <span className="form-section__title">피하고 싶은 VOC</span>
+            <span className="form-section__hint">여러 개 고를 수 있습니다</span>
+          </legend>
           <div className="menu-lab__checkboxes">
             {avoidIssueOptions.map((issue) => (
               <label
@@ -201,14 +211,14 @@ export function MenuLab() {
                 <span aria-hidden="true" className="menu-lab__checkbox-mark">
                   {form.avoidIssues.includes(issue) ? '✓' : ''}
                 </span>
-                <span className="menu-lab__checkbox-text">{issue}</span>
+                <span className="menu-lab__checkbox-text">{issue === '없음' ? '해당 없음' : issue}</span>
               </label>
             ))}
           </div>
-        </div>
+        </fieldset>
 
-        <label className="menu-lab__field menu-lab__field--wide">
-          <span>추가 메모</span>
+        <label className="menu-lab__field form-section">
+          <span className="form-section__title">추가 메모 <span className="form-section__hint">선택</span></span>
           <textarea
             value={form.memo}
             onChange={(event) => setForm((prev) => ({ ...prev, memo: event.target.value }))}
