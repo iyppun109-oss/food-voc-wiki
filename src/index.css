@@ -1,29 +1,49 @@
 :root {
   color-scheme: light;
   font-family: 'Pretendard', 'Segoe UI', 'Malgun Gothic', system-ui, sans-serif;
-  line-height: 1.6;
+  line-height: 1.55;
   font-weight: 400;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --color-bg: #f0f4f8;
-  --color-surface: #ffffff;
-  --color-text: #1e293b;
-  --color-muted: #64748b;
-  --color-border: #e2e8f0;
-  --color-navy: #1e3a5f;
-  --color-navy-dark: #0f2744;
-  --color-navy-light: #2d4a6f;
-  --color-navy-soft: #e8eef4;
-  --shadow-sm: 0 1px 3px rgb(15 39 68 / 8%);
-  --shadow-md: 0 8px 24px rgb(15 39 68 / 12%);
-  --shadow-modal: 0 16px 48px rgb(15 39 68 / 20%);
+  /* 중립 회색 단계(graphite) + 강조색 하나. 화면 바탕은 조용하게, 색은 의미가 있을 때만 씁니다. */
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --raised: #f4f4f5;
+  --line: rgb(23 23 23 / 10%);
+  --line-strong: rgb(23 23 23 / 22%);
+  --text: #171717;
+  --text-2: #525252;
+  --muted: #737373;
+  --accent: #1e3a5f;
+  --accent-soft: #eef2f6;
+  --positive: #15803d;
+  --positive-soft: #edf7f0;
+  --caution: #a16207;
+  --caution-soft: #fdf6e3;
+  --negative: #b91c1c;
+  --negative-soft: #fdf0ef;
+
+  /* 기존 이름 호환 */
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-border: var(--line);
+  --color-navy: var(--text);
+  --color-navy-dark: var(--text);
+  --color-navy-light: var(--accent);
+  --color-navy-soft: var(--accent-soft);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 5%);
+  --shadow-md: 0 1px 2px rgb(0 0 0 / 5%);
+  --shadow-modal: 0 8px 24px rgb(0 0 0 / 10%);
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
-  --max-width: 1120px;
+  --max-width: 1280px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 *,

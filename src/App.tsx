@@ -1,4 +1,5 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { CalendarDays, FileText, LogOut, MessageSquareWarning, Utensils } from 'lucide-react'
 import { CategoryFilter } from './components/CategoryFilter'
 import { EntryCard } from './components/EntryCard'
 import { EntryModal } from './components/EntryModal'
@@ -11,7 +12,18 @@ import {
   getCaseById,
   vocCases,
 } from './data/vocCases'
+import './shell.css'
 import './App.css'
+
+/** 식판 모양 로고 표식 */
+function TrayMark() {
+  return (
+    <svg className="brand__mark" width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+      <rect x="2.5" y="4.5" width="23" height="19" rx="4" />
+      <path d="M2.5 14h23M10.2 4.5V14M17.8 4.5V14M14 14v9.5" />
+    </svg>
+  )
+}
 
 function normalizeQuery(query: string): string {
   return query.trim().toLowerCase()
@@ -72,86 +84,82 @@ export default function App() {
       ? '전체'
       : categories.find((item) => item.id === categoryFilter)?.label ?? '카테고리'
 
+  const navItems = [
+    { id: 'voc', label: 'VOC 대응', icon: MessageSquareWarning },
+    { id: 'report', label: '보고서 작성', icon: FileText },
+    { id: 'recommend', label: '메뉴 추천', icon: Utensils },
+    { id: 'plan', label: '식단표', icon: CalendarDays },
+  ] as const
+
+  const handleNav = (id: (typeof navItems)[number]['id']) => {
+    if (id === 'report') {
+      setIsReportModalOpen(true)
+      return
+    }
+    setActiveTab(id)
+  }
+
+  const isNavActive = (id: (typeof navItems)[number]['id']) =>
+    id === 'report' ? isReportModalOpen : !isReportModalOpen && activeTab === id
+
+  const brand = (
+    <div className="brand">
+      <TrayMark />
+      <div>
+        <p className="brand__name">FoodVOC</p>
+        <p className="brand__desc">단체급식 업무 도구</p>
+      </div>
+    </div>
+  )
+
+  const logoutLink = import.meta.env.PROD ? (
+    <a className="nav-item" href="/__logout">
+      <LogOut size={18} strokeWidth={1.5} aria-hidden="true" />
+      로그아웃
+    </a>
+  ) : null
+
   return (
     <div className="app">
-      <header className="site-header">
-        <div className="site-header__inner">
-          <div className="site-header__brand-wrap">
-            <span className="site-header__badge" aria-hidden="true">
-              FV
-            </span>
-            <div>
-              <p className="site-header__brand">FoodVOC</p>
-              <h1 className="site-header__title">단체급식 VOC 대응 플랫폼</h1>
-              <p className="site-header__tagline">Quality &amp; VOC Management Platform</p>
-            </div>
-          </div>
+      <aside className="side-nav">
+        {brand}
+        <nav aria-label="주요 메뉴">
+          <ul className="nav-list">
+            {navItems.map(({ id, label, icon: Icon }) => (
+              <li key={id}>
+                <button
+                  type="button"
+                  className={`nav-item ${isNavActive(id) ? 'is-active' : ''}`}
+                  onClick={() => handleNav(id)}
+                  aria-current={isNavActive(id) ? 'page' : undefined}
+                >
+                  <Icon size={18} strokeWidth={1.5} aria-hidden="true" />
+                  {label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div className="side-nav__foot">
+          {logoutLink}
+          <p className="side-nav__copy">© FoodVOC · Powered by 2tB</p>
         </div>
-        <div className="site-header__actions">
-          <nav className="main-nav-tabs" aria-label="기능 탭">
-            <button
-              type="button"
-              className={`main-nav-tab ${activeTab === 'voc' ? 'is-active' : ''}`}
-              onClick={() => setActiveTab('voc')}
-              aria-pressed={activeTab === 'voc'}
-            >
-              VOC 대응
-            </button>
-            <button
-              type="button"
-              className={`main-nav-tab ${activeTab === 'recommend' ? 'is-active' : ''}`}
-              onClick={() => setActiveTab('recommend')}
-              aria-pressed={activeTab === 'recommend'}
-            >
-              메뉴 추천
-            </button>
-            <button
-              type="button"
-              className={`main-nav-tab ${activeTab === 'plan' ? 'is-active' : ''}`}
-              onClick={() => setActiveTab('plan')}
-              aria-pressed={activeTab === 'plan'}
-            >
-              식단표
-            </button>
-          </nav>
-          {activeTab === 'voc' ? (
-            <button
-              type="button"
-              className="report-button report-button--primary"
-              onClick={() => setIsReportModalOpen(true)}
-            >
-              VOC 보고서 작성
-            </button>
-          ) : null}
-          {import.meta.env.PROD ? (
-            <a className="logout-link" href="/__logout">
-              로그아웃
-            </a>
-          ) : null}
-        </div>
+      </aside>
+
+      <header className="top-bar">
+        {brand}
+        {logoutLink}
       </header>
 
       <main className="main">
         {activeTab === 'voc' ? (
         <>
-          <section className="summary-panel" aria-label="서비스 요약">
-            <article className="summary-card">
-              <p className="summary-card__label">총 VOC 사례 수</p>
-              <p className="summary-card__value">{vocCases.length}건</p>
-            </article>
-            <article className="summary-card">
-              <p className="summary-card__label">주요 카테고리 수</p>
-              <p className="summary-card__value">{categories.length}개</p>
-            </article>
-            <article className="summary-card">
-              <p className="summary-card__label">보고서 작성 기능</p>
-              <p className="summary-card__value">바로 생성 가능</p>
-            </article>
-            <article className="summary-card">
-              <p className="summary-card__label">모바일 대응</p>
-              <p className="summary-card__value">390px~430px 최적화</p>
-            </article>
-          </section>
+          <div className="page-head">
+            <h1 className="page-title">VOC 대응</h1>
+            <p className="page-meta">
+              사례 {vocCases.length}건 · 카테고리 {categories.length}개
+            </p>
+          </div>
 
           <section className="search-section">
             <SearchBar
@@ -161,7 +169,7 @@ export default function App() {
             />
 
             <section className="keyword-shortcuts" aria-label="자주 찾는 사례">
-              <h3 className="keyword-shortcuts__title">🔥 자주 찾는 사례</h3>
+              <h3 className="keyword-shortcuts__title">자주 찾는 사례</h3>
               <div className="keyword-shortcuts__list">
                 {quickKeywords.map((keyword) => {
                   const isActive = searchQuery === keyword
@@ -186,7 +194,7 @@ export default function App() {
               className="keyword-shortcuts keyword-shortcuts--secondary"
               aria-label="인기 VOC"
             >
-              <h3 className="keyword-shortcuts__title">⭐ 인기 VOC</h3>
+              <h3 className="keyword-shortcuts__title">인기 VOC</h3>
               <div className="keyword-shortcuts__list">
                 {popularKeywords.map((keyword) => {
                   const isActive = searchQuery === keyword
@@ -263,16 +271,20 @@ export default function App() {
         <ReportGeneratorModal onClose={() => setIsReportModalOpen(false)} />
       )}
 
-      <footer className="site-footer">
-        <p className="footer-copy">
-          © FoodVOC · Powered by{' '}
-          <span className="footer-wordmark" aria-label="2tB">
-            <span className="footer-wordmark__prefix">2</span>
-            <span className="footer-wordmark__t">t</span>
-            <span className="footer-wordmark__suffix">B</span>
-          </span>
-        </p>
-      </footer>
+      <nav className="tab-bar" aria-label="주요 메뉴">
+        {navItems.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            className={`tab-bar__item ${isNavActive(id) ? 'is-active' : ''}`}
+            onClick={() => handleNav(id)}
+            aria-current={isNavActive(id) ? 'page' : undefined}
+          >
+            <Icon size={20} strokeWidth={1.5} aria-hidden="true" />
+            {label}
+          </button>
+        ))}
+      </nav>
     </div>
   )
 }

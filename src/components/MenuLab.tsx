@@ -94,7 +94,7 @@ export function MenuLab() {
 
   return (
     <section className="menu-lab">
-      <h2 className="menu-lab__title">Menu Lab</h2>
+      <h1 className="menu-lab__title">메뉴 추천</h1>
       <p className="menu-lab__subtitle">식사 상황과 고객 VOC 이슈를 반영해 메뉴를 추천합니다. 식단가는 참고 조건이며, 실제 식재료 원가는 계산하지 않습니다.</p>
 
       <form className="menu-lab__form" onSubmit={handleSubmit}>
