@@ -154,6 +154,45 @@ for (const keyword of [
     fail(`알레르기 반응이 중대로 판정되지 않음: "${keyword}" → ${analysis.label}`)
   }
 }
+// 안전망(양방향 20개): 먹은 뒤 몸 증상·의료 표현은 중대, 먹기 전·음식 맛·시설 표현은 중대 아님
+for (const keyword of [
+  '먹고 나서 의식을 잃었어요',
+  '먹은 뒤 응급실 갔어요',
+  '먹은 후 쌕쌕거려요',
+  '식사 후 기침이 계속 나요',
+  '새우 먹고 목이 간질간질해요',
+  '점심 먹고 가슴이 두근거려요',
+  '먹다가 쓰러졌어요',
+  '어제 먹은 뒤 병원 진료 받았어요',
+  '식사 후 손이 저려요',
+  '먹고 나서 식은땀이 나요',
+]) {
+  const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
+  if (!analysis.isHighRisk) fail(`안전망 누락: "${keyword}" → ${analysis.label}`)
+}
+for (const keyword of [
+  '밥 먹으러 왔는데 몸이 안 좋아서 일찍 갔어요',
+  '먹었는데 맛이 이상해요',
+  '줄이 길어서 숨이 막혀요',
+  '더워서 숨 막혀요',
+  '시끄러워서 어지러워요',
+  '먹고 싶은 메뉴가 없어요',
+  '에어컨 바람이 차가워요',
+  '식판이 차가워요',
+  '반찬 추가해 주세요',
+  '숨은 메뉴 있나요',
+  '병원 직원 식당인데 국이 짜요',
+  '직원들 위생 의식이 부족해 보여요',
+]) {
+  const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
+  if (analysis.isHighRisk) fail(`안전망 과판정: "${keyword}" → ${analysis.label}`)
+  if (analysis.category === '품질' && /(바람|식판)/.test(keyword)) fail(`시설·식기를 음식 품질로 판정: "${keyword}"`)
+}
+for (const keyword of ['반찬 추가해 주세요', '숨은 메뉴 있나요']) {
+  const report = generateReportContents({ ...base, keyword }, null)
+  if (/번거로우셨|불편을 드려/.test(report.customerMessage)) fail(`요청·문의에 불편 사과: "${keyword}"`)
+}
+
 // 먹은 뒤 이상하다는 말은 알레르기가 아니어도 중대
 if (!analyzeReportInput({ keyword: '계란 들어간 줄 몰랐는데 먹고 나서 이상해요', memo: '', categoryOverride: '' }, null).isHighRisk) fail('먹고 나서 이상해요 → 중대 아님')
 

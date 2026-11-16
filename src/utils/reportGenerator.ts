@@ -523,8 +523,8 @@ const allergyInquiry: Partial<CategoryKnowledge> = {
   label: '알레르기·원재료 문의',
   clientLabel: '알레르기·원재료 문의',
   incident: '{m}의 알레르기 유발 성분·원재료 문의 접수됨.',
-  customerEmpathy: '{t}에 들어간 재료를 문의해 주셔서 감사합니다.',
-  customerCheck: '해당 메뉴의 원재료와 알레르기 유발 성분을 확인해 안내드리겠습니다. 식사 후 불편한 증상이 있으시면 바로 말씀해 주십시오.',
+  customerEmpathy: '{t}의 알레르기 유발 성분에 대해 말씀해 주셔서 감사합니다.',
+  customerCheck: '해당 메뉴의 원재료와 알레르기 유발 성분을 확인해 안내드리고, 표시가 필요한 부분은 보완하겠습니다. 식사 후 불편한 증상이 있으시면 바로 말씀해 주십시오.',
   customerPrevention: '앞으로도 메뉴별 알레르기 유발 성분 표시를 꼼꼼히 하겠습니다.',
   internalChecks: [
     { text: '해당 메뉴의 원재료·알레르기 유발 성분 확인 예정임.', topic: /원재료|성분/ },
@@ -565,8 +565,8 @@ const generalInquiry: Partial<CategoryKnowledge> = {
   label: '고객 문의',
   clientLabel: '고객 문의',
   menuRelated: false,
-  incident: '"{kw}" 관련 고객 문의 접수됨.',
-  customerEmpathy: '문의해 주셔서 감사합니다.',
+  incident: '"{kw}" 관련 고객 문의·요청 접수됨.',
+  customerEmpathy: '말씀해 주셔서 감사합니다.',
   customerCheck: '말씀하신 내용을 확인해 안내드리겠습니다.',
   customerPrevention: '앞으로도 궁금하신 점은 언제든 말씀해 주십시오.',
   internalChecks: [{ text: '문의 내용 확인 예정임.' }, { text: '확인 결과 고객 안내 필요함.' }],
@@ -754,9 +754,18 @@ const hazardousForeign = /(유리(?!\s?(컵|창|문|병))|철사|쇳조각|금�
 /** 상하거나 기한이 지난 음식: 품질이어도 식중독 위험이 있어 중대 기준으로 보고합니다. */
 const spoiledFood = /(유통기한|소비기한|기한(이)?\s?지난|곰팡|상했|상한|변질|쉰내|쉬었|쉰\s?(것|거|맛|듯|김치|밥|국|반찬|우유|나물|떡|빵|김밥|도시락|음식|요구르트)|쉬어)/
 /** 확인을 부탁하는 문의는 실제 변질 제보가 아니므로 중대로 올리지 않습니다('유통기한 확인 요청'). */
-const inquiryOnly = /(요청|문의|궁금|알려\s?주|확인\s?(부탁|해\s?주))/
+const inquiryOnly = /(요청|문의|궁금|알려\s?주|확인\s?(부탁|해\s?주)|있나요|있을까요|되나요|추가해\s?주|바꿔\s?주)/
 /** 실제로 겪은 일을 말하는 표현. '상했는지 확인해 주세요'처럼 묻는 말(~는지·~인지) 안의 단어는 빼고 봅니다. */
 const observedFact = /(마셨|먹었|먹은|먹고|먹다|드셨|드시고|핀|피었|폈|났|지난|지났|상한|상했|시큼|쉰|쉬었|변질|냄새)/
+/**
+ * 안전망: 단어 목록을 하나씩 늘리는 대신 구조로 막습니다.
+ * - 의료·응급 표현이 있으면 유형과 상관없이 중대로 봅니다.
+ * - 먹은 뒤(완료형) 몸·증상 표현이 이어지는데 유형이 정해지지 않았으면 '식사 후 이상 증상'으로 봅니다.
+ */
+const medicalTerms = /(응급실|응급\s?(처치|상황|조치)|병원\s?(에|을|으로)?\s?(갔|가|감|가서|다녀|진료|치료|방문|이송)|119|구급|의식\s?(을|이)?\s?(잃|없)|기절|쓰러|실신|진료\s?(를)?\s?(받|봤)|입원|약\s?(을)?\s?(먹|처방|받))/
+const eatenThen = /(?<eat>먹고|먹은\s?(?:뒤|후|다음)|먹었더니|먹었는데|먹다가|마시고|마신\s?(?:뒤|후)|마셨더니|드시고|드신\s?(?:뒤|후)|식사\s?(?:후|하고|하다가|중))\S*\s?(?<rest>.*)/
+const bodySymptom = /(기침|쌕쌕|간질|목이|목에|목구멍|숨|호흡|피부|가슴|심장|두근|열이|열나|오한|배가|배\s?(아|통)|속이|머리가\s?(아|어지)|두통|어지|토했|토할|구토|설사|두드러기|가려|부었|붓|빨개|빨갛|따끔|저려|저림|마비|떨려|식은땀|몸이)/
+
 /** 알레르기 성분을 묻는 말 */
 const allergyQuestion = /(문의|궁금|알려\s?주|성분|들어\s?(갔|가|있)|있나요|인가요|되나요|확인\s?(부탁|해\s?주)|추가해\s?주|표시해\s?주|요청)/
 /** 알레르기 증상을 말하는 표현 */
@@ -790,6 +799,16 @@ export function analyzeReportInput(
     detected = selectedCase.category as CategoryType
     fromCase = true
   }
+
+  // 안전망: 먹은 뒤 몸 증상을 말했는데 유형이 정해지지 않았으면 식사 후 이상 증상으로 봅니다.
+  const afterEating = source.match(eatenThen)
+  const safetyNetSymptom = afterEating?.groups?.rest.match(bodySymptom) ?? null
+  let safetyEvidence: string[] = []
+  if (detected === '기타' && !fromCase && afterEating?.groups && safetyNetSymptom) {
+    detected = '식중독 의심'
+    safetyEvidence = [afterEating.groups.eat, safetyNetSymptom[1]]
+  }
+  const mentionsMedical = medicalTerms.test(source)
 
   const override = form.categoryOverride && reportCategoryOptions.includes(form.categoryOverride) ? form.categoryOverride : ''
   const category = (override || detected) as CategoryType
@@ -827,7 +846,7 @@ export function analyzeReportInput(
   return {
     category,
     detected,
-    evidence: fromCase ? [] : detection.evidence,
+    evidence: fromCase ? [] : safetyEvidence.length > 0 ? safetyEvidence : detection.evidence,
     evidenceFromMemo,
     alternatives: detection.alternatives.filter((item) => item !== category) as CategoryType[],
     isOverridden: Boolean(override) && override !== detected,
@@ -841,6 +860,8 @@ export function analyzeReportInput(
     isAllergyLabelComplaint,
     isGeneralInquiry,
     isHighRisk:
+      // 병원·응급실·의식 같은 말이 있으면 어떤 유형이든 중대로 봅니다.
+      mentionsMedical ||
       (category === '식중독 의심' && !isAllergyInquiry && !isAllergyLabelComplaint) ||
       category === '안전사고' ||
       (category === '이물 혼입' && hazardousForeign.test(lower)) ||
