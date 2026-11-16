@@ -229,6 +229,19 @@ for (const keyword of ['반찬 추가해 주세요', '숨은 메뉴 있나요'])
   if (/번거로우셨|불편을 드려/.test(report.customerMessage)) fail(`요청·문의에 불편 사과: "${keyword}"`)
 }
 
+// 먹지 않았다고 한 증상: 중대이되 '식사 후'로 단정하지 않음
+for (const keyword of ['안 먹었는데 배가 아파요', '못 먹고 나왔는데 어지러워요']) {
+  const form = { ...base, keyword }
+  const analysis = analyzeReportInput(form, null)
+  const report = generateReportContents(form, null)
+  if (analysis.category === '식중독 의심' && /식사 후|섭취 후/.test([report.customerMessage, report.clientReport].join('\n'))) fail(`먹지 않았는데 식사 후로 단정: "${keyword}"`)
+}
+for (const [keyword, flag] of [['알레르기 때문에 못 먹었어요', 'isAllergyLabelComplaint'], ['새우 못 먹는데 모르고 먹고 두드러기가 났어요', 'isAllergy']] as const) {
+  const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
+  if (!analysis[flag] || analysis.isHealthEvent) fail(`'못 먹' 처리가 알레르기 갈래를 덮음: "${keyword}"`)
+}
+if (analyzeReportInput({ keyword: '이빨 자국 있는 빵이 나왔어요', memo: '', categoryOverride: '' }, null).category === '안전사고') fail('"이빨 자국" → 치아 사고로 오판정')
+
 // 먹은 맥락 없는 쓰러짐: 중대이되 '식사 후'로 단정하지 않음
 {
   const form = { ...base, keyword: '식당에서 갑자기 쓰러지셨어요' }

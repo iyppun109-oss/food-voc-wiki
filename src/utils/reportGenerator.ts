@@ -600,7 +600,7 @@ const injurySafety: Partial<CategoryKnowledge> = {
 
 const injuryKeywords = /(화상|데었|데였|데임|베었|베임|베였|찔림|찔렸|미끄러(졌|짐|져)|넘어(졌|짐|져)|다쳤|다침)/
 /** 치아 사고로 볼 단어. '돌솥'의 '돌'처럼 다른 낱말 속 글자는 빼도록 좁혀 둡니다. */
-const dentalKeywords = /(치아|이빨(?!개|갛|간|게)|이가\s?(깨|부러|빠|아프)|파절|돌(을|이)?\s?씹|돌조각|돌멩이|딱딱한\s?(물질|이물|것))/
+const dentalKeywords = /(치아|이빨(?!개|갛|간|게|\s?자국)|이가\s?(깨|부러|빠|아프)|파절|돌(을|이)?\s?씹|돌조각|돌멩이|딱딱한\s?(물질|이물|것))/
 const allergyKeywords = /(알레르기|알러지|두드러기|가려|간지|발진|부었|부어|붓|따끔|빨갛|빨개|숨\s?(이|을)?\s?(차|막|가빠|쉬기|못\s?쉬)|호흡)/
 
 /** 알레르기 의심: 식사 후 이상 증상의 세부 갈래 */
@@ -881,7 +881,10 @@ export function analyzeReportInput(
   const isAllergyLabelComplaint = category === '식중독 의심' && mentionsAllergy && !hasSymptom && !isAllergyInquiry
   // 유형이 정해지지 않은 순수 문의(원산지·운영 시간 등)
   const isGeneralInquiry = category === '기타' && !isAllergyInquiry && inquiryOnly.test(lower) && !complaintWords.test(lower)
-  const isHealthEvent = healthEventOnly && category === '식중독 의심'
+  // '안 먹었는데 배가 아파요'처럼 먹지 않았다고 했으면 식사 후로 단정하지 않습니다.
+  const notEaten = /(안|못)\s?(먹|드시|드셨|마시|마셨)/.test(lower)
+  const isHealthEvent =
+    (healthEventOnly || (notEaten && !afterEating && !/(알레르기|알러지)/.test(lower))) && category === '식중독 의심'
   const kb = isHealthEvent
     ? { ...knowledge[category], ...healthEvent }
     : isAllergyInquiry

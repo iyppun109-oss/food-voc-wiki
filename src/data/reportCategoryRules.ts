@@ -82,7 +82,7 @@ export const REPORT_TEMPLATE_ALIASES: Array<{ type: ReportCategory; keywords: Al
     keywords: [
       '안전사고',
       '치아',
-      /이빨(?!개|갛|간|게)/,
+      /이빨(?!개|갛|간|게|\s?자국)/,
       /이가\s?(깨|부러|빠|아프)/,
       '파절',
       '딱딱한 물질',
