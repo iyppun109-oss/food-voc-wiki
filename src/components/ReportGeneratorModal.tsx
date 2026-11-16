@@ -258,6 +258,11 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
                           ? '고른 비슷한 사례의 유형을 따랐습니다.'
                           : '판정 단어가 없어 기타로 분류했습니다.'}
                   </p>
+                  {analysis.isHighRisk && (
+                    <p className="report-detect__caution">
+                      긴급 건으로 보고 중대 기준으로 작성합니다. 근거가 고객 말씀과 다르면 유형을 바꿔 주세요.
+                    </p>
+                  )}
                   <label className="report-detect__override">
                     <span>유형 바꾸기</span>
                     <select
@@ -591,6 +596,9 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
                     </button>
                   )}
                 </div>
+                <p className="report-panel__send-hint">
+                  자동으로 만든 초안입니다. 보내기 전에 사실과 다른 내용이 없는지 확인해 주세요.
+                </p>
                 {copyError === activeTab && (
                   <p className="report-copy-error" role="alert">
                     복사에 실패했습니다. 내용을 직접 선택해 복사해 주세요.

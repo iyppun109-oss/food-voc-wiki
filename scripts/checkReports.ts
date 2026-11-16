@@ -173,6 +173,8 @@ for (const keyword of [
   '국 먹고 입안이 헐었어요',
   '먹은 뒤로 계속 화장실 가요',
   '먹고 나서 입이 얼얼해요',
+  '점심 후 배가 쓰려요',
+  '먹고 나서 눈이 충혈됐어요',
 ]) {
   const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
   if (!analysis.isHighRisk) fail(`안전망 누락: "${keyword}" → ${analysis.label}`)
@@ -203,6 +205,14 @@ for (const keyword of [
   '구급함 위치 안내가 없어요',
   '먹고 나서 목이 말라요 물이 없어요',
   '먹고 나서 배가 불러요',
+  '의자가 쓰러졌어요',
+  '화분이 쓰러졌어요',
+  '119 신고 훈련 때문에 식당 일찍 닫나요',
+  '동료가 진료 받았는데 식당 메뉴 추천해 주세요',
+  '어제 병원 갔다가 늦게 와서 품절됐어요',
+  '입원했던 직원 복귀 축하 케이크 문의',
+  '먹고 나서 입안이 개운해요',
+  '먹고 나서 얼얼할 정도로 매워요',
 ]) {
   const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
   if (analysis.isHighRisk) fail(`안전망 과판정: "${keyword}" → ${analysis.label}`)
@@ -212,6 +222,16 @@ for (const keyword of ['반찬 추가해 주세요', '숨은 메뉴 있나요'])
   const report = generateReportContents({ ...base, keyword }, null)
   if (/번거로우셨|불편을 드려/.test(report.customerMessage)) fail(`요청·문의에 불편 사과: "${keyword}"`)
 }
+
+// 먹은 맥락 없는 쓰러짐: 중대이되 '식사 후'로 단정하지 않음
+{
+  const form = { ...base, keyword: '식당에서 갑자기 쓰러지셨어요' }
+  const analysis = analyzeReportInput(form, null)
+  if (!analysis.isHighRisk || !analysis.isHealthEvent) fail(`건강 이상 판정 오류: ${analysis.label}`)
+  const report = generateReportContents(form, null)
+  if (/식사 후|섭취 후/.test([report.customerMessage, report.clientReport].join('\n'))) fail('먹은 맥락 없는데 식사 후로 단정')
+}
+if (analyzeReportInput({ keyword: '먹고 나서 얼얼할 정도로 매워요', memo: '', categoryOverride: '' }, null).category !== '품질') fail('"얼얼할 정도로 매워요" → 품질 아님')
 
 // 먹은 뒤 이상하다는 말은 알레르기가 아니어도 중대
 if (!analyzeReportInput({ keyword: '계란 들어간 줄 몰랐는데 먹고 나서 이상해요', memo: '', categoryOverride: '' }, null).isHighRisk) fail('먹고 나서 이상해요 → 중대 아님')

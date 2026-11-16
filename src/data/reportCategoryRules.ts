@@ -181,6 +181,7 @@ export const REPORT_TEMPLATE_ALIASES: Array<{ type: ReportCategory; keywords: Al
       '탄 맛',
       '맛이 없',
       /너무\s?(매워|맵|매움)/,
+      /(정도로|만큼)\s?(매워|맵|짜)/,
       '시큼',
       '신맛',
       '쉰맛',

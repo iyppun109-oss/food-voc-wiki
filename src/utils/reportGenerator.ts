@@ -746,6 +746,8 @@ export interface ReportAnalysis {
   isAllergyLabelComplaint: boolean
   /** 유형 없는 순수 문의 */
   isGeneralInquiry: boolean
+  /** 먹은 맥락 없는 건강 이상(쓰러짐 등) */
+  isHealthEvent: boolean
   label: string
 }
 
@@ -762,9 +764,34 @@ const observedFact = /(마셨|먹었|먹은|먹고|먹다|드셨|드시고|핀|�
  * - 의료·응급 표현이 있으면 유형과 상관없이 중대로 봅니다.
  * - 먹은 뒤(완료형) 몸·증상 표현이 이어지는데 유형이 정해지지 않았으면 '식사 후 이상 증상'으로 봅니다.
  */
-const medicalTerms = /(응급실\s?(에|으로|을)?\s?(갔|가서|실려|이송|다녀|왔)|병원\s?(에|으로|을)?\s?(갔|가서|실려|이송|다녀왔)|119\s?(를|에)?\s?(불렀|불러|신고|와서|출동)|구급차|의식\s?(을|이)?\s?(잃|없)|기절했|기절해서|기절함|쓰러졌|쓰러져서|쓰러짐|실신했|실신해서|실려\s?갔|입원했|입원해서|입원함|진료\s?(를)?\s?받았|약\s?(을)?\s?(처방\s?받|먹었))/
-const eatenThen = /(?<eat>먹고|먹은\s?(?:뒤|후|다음)|먹은\s?뒤로|먹었더니|먹었는데|먹다가|마시고|마신\s?(?:뒤|후)|마셨더니|드시고|드신\s?(?:뒤|후)|식사\s?(?:후|하고|하다가|하다|중))\S*\s?(?<rest>.*)/
-const bodySymptom = /(기침|쌕쌕|간질|목이(?!\s?(마르|말라|말랐))|목에|목구멍|숨|호흡|피부|가슴|심장|두근|열이|열나|오한|배가\s?(아|쓰|살살|꾸르|불편|뒤틀)|배\s?(아|통)|복통|속이|머리가\s?(아|어지)|두통|어지|토했|토할|구토|설사|화장실\s?(을|에)?\s?(계속|자주|여러)|(계속|자주|여러\s?번)\s?화장실|두드러기|두드러|뭐가\s?(났|돋)|가려|부었|붓|빨개|빨갛|따끔|얼얼|헐었|헐어|입안|저려|저림|마비|떨려|식은땀|몸이)/
+const medicalTerms = /(응급실\s?(에|으로|을)?\s?(갔|가서|실려|이송|다녀|왔)|병원\s?(에|으로|을)?\s?(갔|가서|실려|이송|다녀왔)|119\s?(를|에)?\s?(불렀|불러|신고|와서|출동)|구급차|의식\s?(을|이)?\s?(잃|없)|기절했|기절해서|기절함|기절하셨|쓰러졌|쓰러져서|쓰러짐|쓰러지셨|쓰러지셔서|실신했|실신해서|실신하셨|실려\s?갔|입원했|입원해서|입원함|진료\s?(를)?\s?받았|약\s?(을)?\s?(처방\s?받|먹었))/
+const eatenThen = /(?<eat>먹고|먹은\s?(?:뒤|후|다음)|먹은\s?뒤로|먹었더니|먹었는데|먹다가|마시고|마신\s?(?:뒤|후)|마셨더니|드시고|드신\s?(?:뒤|후)|식사\s?(?:후|하고|하다가|하다|중)|(?:아침|점심|저녁|야식)\s?(?:후|먹고|먹은\s?후))\S*\s?(?<rest>.*)/
+const bodySymptom = /(기침|쌕쌕|간질|목이(?!\s?(마르|말라|말랐))|목에|목구멍|숨|호흡|피부|가슴|심장|두근|열이|열나|오한|배가\s?(아|쓰|살살|꾸르|불편|뒤틀)|배\s?(아|통)|복통|속이|머리가\s?(아|어지)|두통|어지|토했|토할|구토|설사|화장실\s?(을|에)?\s?(계속|자주|여러)|(계속|자주|여러\s?번)\s?화장실|두드러기|두드러|뭐가\s?(났|돋)|가려|부었|붓|빨개|빨갛|따끔|얼얼|헐었|헐어|입안이\s?(헐|따끔|부|간지|얼얼)|충혈|눈이\s?(빨|부|가려|충혈)|저려|저림|마비|떨려|식은땀|몸이)/
+
+/** 의료 사건처럼 보여도 사람 일이 아니거나(의자가 쓰러짐) 훈련·문의·축하 맥락이면 중대로 올리지 않습니다. */
+const medicalExclude = /(훈련|교육|추천|문의|축하|복귀|일정|의자|화분|배식대|간판|입간판|테이블|선반|쓰레기통|우산|자전거|물건|박스|상자)/
+/** 맛 표현: '얼얼할 정도로 매워요', '입안이 개운해요'는 증상이 아님 */
+const tasteContext = /(매워|맵|매운|짜|짭|개운|시원|상큼|맛있|고소)/
+/** 식당 이용 중 건강 이상(먹은 맥락 없이 쓰러짐 등): 식사 원인을 단정하지 않습니다. */
+const healthEvent: Partial<CategoryKnowledge> = {
+  label: '고객 건강 이상(확인 필요)',
+  clientLabel: '고객 건강 이상',
+  menuRelated: false,
+  incident: '식당 이용 중 고객 건강 이상 관련 제보 접수됨(긴급 확인 대상).',
+  customerEmpathy: '몸이 불편하셨다는 말씀을 듣고 많이 걱정됩니다.',
+  apologyScope: '식당 이용',
+  customerCheck: '무엇보다 고객님의 상태가 가장 중요합니다. 지금 상태를 알려 주시면 진료 안내 등 필요한 사항을 도와드리겠습니다.',
+  customerPrevention: '당시 상황을 확인해 신속히 안내드리겠습니다.',
+  internalChecks: [
+    { text: '고객 상태 확인 및 필요 시 의료기관 안내 필요함.' },
+    { text: '당시 경위와 당일 식사 여부·메뉴 확인 예정임.' },
+  ],
+  causes: [],
+  internalPrevention: ['확인 결과에 따라 필요한 조치를 마련하겠음.'],
+  clientCheck: '고객 상태와 당시 경위, 당일 식사 여부를 확인하겠으며, 확인 전까지 원인을 단정하지 않겠습니다.',
+  clientPrevention: '확인 결과에 따라 필요한 조치를 마련하겠습니다.',
+  noApology: true,
+}
 
 /** 알레르기 성분을 묻는 말 */
 const allergyQuestion = /(문의|궁금|알려\s?주|성분|들어\s?(갔|가|있)|있나요|인가요|되나요|확인\s?(부탁|해\s?주)|추가해\s?주|표시해\s?주|요청)/
@@ -802,9 +829,18 @@ export function analyzeReportInput(
 
   // 안전망: 먹은 뒤 몸 증상을 말했는데 유형이 정해지지 않았으면 식사 후 이상 증상으로 봅니다.
   const afterEating = source.match(eatenThen)
-  const safetyNetSymptom = afterEating?.groups?.rest.match(bodySymptom) ?? null
+  const restAfterEating = afterEating?.groups?.rest ?? ''
+  const rawSymptom = restAfterEating.match(bodySymptom)
+  // '얼얼할 정도로 매워요', '입안이 개운해요'처럼 맛을 말한 경우는 증상으로 보지 않습니다.
+  const safetyNetSymptom = rawSymptom && !(tasteContext.test(restAfterEating) && /^(얼얼|입안|따끔|시원)/.test(rawSymptom[1])) ? rawSymptom : null
   let safetyEvidence: string[] = []
-  const medicalEvent = source.match(medicalTerms)
+  // 의료 사건은 사람 일이고 훈련·문의 맥락이 아니며, 먹은 뒤이거나 몸 증상·의식 관련일 때만 봅니다.
+  const medicalMatch = source.match(medicalTerms)
+  const medicalEvent =
+    medicalMatch && !medicalExclude.test(source) && (afterEating || bodySymptom.test(source) || /(기절|실신|의식|구급차|쓰러)/.test(medicalMatch[1]))
+      ? medicalMatch
+      : null
+  const healthEventOnly = detected === '기타' && !fromCase && Boolean(medicalEvent) && !afterEating
   if (detected === '기타' && !fromCase && afterEating?.groups && safetyNetSymptom) {
     detected = '식중독 의심'
     safetyEvidence = [afterEating.groups.eat, safetyNetSymptom[1]]
@@ -840,7 +876,10 @@ export function analyzeReportInput(
   const isAllergyLabelComplaint = category === '식중독 의심' && mentionsAllergy && !hasSymptom && !isAllergyInquiry
   // 유형이 정해지지 않은 순수 문의(원산지·운영 시간 등)
   const isGeneralInquiry = category === '기타' && !isAllergyInquiry && inquiryOnly.test(lower) && !complaintWords.test(lower)
-  const kb = isAllergyInquiry
+  const isHealthEvent = healthEventOnly && category === '식중독 의심'
+  const kb = isHealthEvent
+    ? { ...knowledge[category], ...healthEvent }
+    : isAllergyInquiry
     ? { ...knowledge[category], ...allergyInquiry }
     : isAllergyLabelComplaint
       ? { ...knowledge[category], ...allergyLabelComplaint }
@@ -864,6 +903,7 @@ export function analyzeReportInput(
     isAllergyInquiry,
     isAllergyLabelComplaint,
     isGeneralInquiry,
+    isHealthEvent,
     isHighRisk:
       // 병원·응급실·의식 같은 말이 있으면 어떤 유형이든 중대로 봅니다.
       mentionsMedical ||
@@ -926,7 +966,9 @@ function tidyQuote(text: string) {
 
 function buildContext(form: ReportFormState, selectedCase: VocCase | null) {
   const analysis = analyzeReportInput(form, selectedCase)
-  const kb = analysis.isAllergyInquiry
+  const kb = analysis.isHealthEvent
+    ? { ...knowledge[analysis.category], ...healthEvent }
+    : analysis.isAllergyInquiry
     ? { ...knowledge[analysis.category], ...allergyInquiry }
     : analysis.isAllergyLabelComplaint
       ? { ...knowledge[analysis.category], ...allergyLabelComplaint }
