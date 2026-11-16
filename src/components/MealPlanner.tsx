@@ -19,6 +19,7 @@ import {
   summarizePlan,
   type AvoidFactor,
   type DayNutrition,
+  SODIUM_DAILY_REFERENCE,
   type MealPlan,
   type MealPlanOptions,
   type NutritionStatus,
@@ -122,6 +123,7 @@ function PlanCell({ day, row, portions, showNutrition, onReplace }: CellProps) {
                   {nutrition.servingG}g · {Math.round(nutrition.kcal)}kcal
                 </span>
                 <span>단백질 {nutrition.proteinG.toFixed(1)}g</span>
+                {nutrition.sodiumMg !== null && <span>나트륨 {Math.round(nutrition.sodiumMg).toLocaleString('ko-KR')}mg</span>}
               </>
             ) : (
               '영양 자료 없음'
@@ -190,6 +192,18 @@ function DayTotals({ nutrition, target }: { nutrition: DayNutrition; target: Nut
         status={nutrition.kcalStatus}
       />
       <Gauge label="단백질" value={nutrition.proteinG} unit="g" min={target.proteinMin} status={nutrition.proteinStatus} />
+      {nutrition.known > 0 && (
+        <span
+          className={`meal-plan__sodium${nutrition.sodiumMg > SODIUM_DAILY_REFERENCE ? ' meal-plan__sodium--high' : ''}`}
+          title="국물을 모두 먹었을 때 기준"
+        >
+          나트륨 {nutrition.sodiumMg.toLocaleString('ko-KR')}mg
+          <span className="meal-plan__sodium-ratio">
+            하루 기준의 {Math.round((nutrition.sodiumMg / SODIUM_DAILY_REFERENCE) * 100)}%
+            {nutrition.missing.length > 0 ? ' · 일부 제외' : ''}
+          </span>
+        </span>
+      )}
     </>
   )
 }
@@ -580,6 +594,13 @@ export function MealPlanner() {
               <dd className="meal-plan__stat-note">목표 {target.proteinMin}g 이상</dd>
             </div>
             <div className="meal-plan__stat">
+              <dt>하루 평균 나트륨</dt>
+              <dd>{summary.avgSodiumMg === null ? '–' : `${summary.avgSodiumMg.toLocaleString('ko-KR')}mg`}</dd>
+              <dd className="meal-plan__stat-note">
+                하루 기준 {SODIUM_DAILY_REFERENCE.toLocaleString('ko-KR')}mg · 국물 모두 먹은 기준
+              </dd>
+            </div>
+            <div className="meal-plan__stat">
               <dt>목표를 채운 날</dt>
               <dd>
                 {summary.onTargetDays}/{plan.days.length}일
@@ -729,10 +750,12 @@ export function MealPlanner() {
           ))}
 
           <p className="meal-plan__hint">
-            열량·단백질은 {nutritionSource.name}
+            열량·단백질·나트륨은 {nutritionSource.name}
             {nutritionSource.version ? ` ${nutritionSource.version}판` : ''}의 100g당 수치에 위에서 정한 1인 분량을 곱한
             값입니다. 메뉴명이 DB와 다르면 가장 가까운 음식의 수치를 썼습니다(아래 '영양 계산 근거'에서 확인). 실제
-            레시피에 따라 달라지므로 영양 표시에 쓰기 전에 확인해 주세요. "보충"은 만족도 평가 자료가 없는 메뉴입니다.
+            레시피에 따라 달라지므로 영양 표시에 쓰기 전에 확인해 주세요. 나트륨은 국물을 모두 먹었을 때 기준이며, 하루
+            기준 {SODIUM_DAILY_REFERENCE.toLocaleString('ko-KR')}mg은 한국인 영양소 섭취기준의 성인 만성질환위험감소섭취량입니다.
+            "보충"은 만족도 평가 자료가 없는 메뉴입니다.
           </p>
           <details className="meal-plan__basis">
             <summary>영양 계산 근거 보기 (메뉴별 식약처 DB 음식명)</summary>
@@ -741,7 +764,7 @@ export function MealPlanner() {
                 <tr>
                   <th scope="col">식단 메뉴</th>
                   <th scope="col">DB 음식명</th>
-                  <th scope="col">100g당 열량·단백질</th>
+                  <th scope="col">100g당 열량·단백질·나트륨</th>
                 </tr>
               </thead>
               <tbody>
@@ -749,7 +772,11 @@ export function MealPlanner() {
                   <tr key={row.name}>
                     <td>{row.name}</td>
                     <td>{row.source ? `${row.source.dbName} (${row.source.basis})` : '자료 없음'}</td>
-                    <td>{row.source ? `${Math.round(row.source.kcal100)}kcal · ${row.source.protein100.toFixed(1)}g` : '–'}</td>
+                    <td>
+                      {row.source
+                        ? `${Math.round(row.source.kcal100)}kcal · ${row.source.protein100.toFixed(1)}g${row.source.sodium100 === null ? '' : ` · ${row.source.sodium100.toLocaleString('ko-KR')}mg`}`
+                        : '–'}
+                    </td>
                   </tr>
                 ))}
               </tbody>

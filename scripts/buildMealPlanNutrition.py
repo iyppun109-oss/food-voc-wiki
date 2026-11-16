@@ -213,6 +213,31 @@ MAPPING = {
     '돈코츠라멘': ['라멘_돈코츠라멘'],
     '들기름막국수': ['막국수'],
     '냉소바': ['모밀국수'],
+    # 2차 짝짓기(같은 종류·주재료·조리법의 가장 가까운 음식)
+    '뿌리채소영양밥': ['영양돌솥밥'],
+    '김가루밥': ['주먹밥'],
+    '가쓰오장국': ['두부국'],
+    '황태순두부탕': ['황태해장국'],
+    '콩나물해장국': ['콩나물국_고춧가루'],
+    '미나리소고기전골': ['소고기전골'],
+    '들깨수제비': ['수제비'],
+    '치즈닭갈비': ['닭볶음(닭갈비)_매운양념_치즈'],
+    '유린기': ['깐풍기'],
+    '너비아니구이': ['떡갈비'],
+    '쇠고기육전': ['양파 소고기전'],
+    '메밀전병': ['빙떡(메밀전병)'],
+    '명엽채볶음': ['오징어채볶음'],
+    '연근강정': ['연근튀김'],
+    '고들빼기무침': ['고들빼기김치'],
+    '쇠고기김치덮밥': ['소고기 덮밥'],
+    '부타동덮밥': ['돼지고기 덮밥'],
+    '우삼겹김치덮밥': ['소고기 덮밥'],
+    '돼지고기직화구이덮밥': ['돼지고기 덮밥'],
+    '깍두기차돌볶음밥': ['볶음밥_배추김치_소고기'],
+    '바지락비빔밥': ['비빔밥'],
+    '소불고기버섯솥밥': ['덮밥_불고기'],
+    '나물떡갈비솥밥': ['비빔밥', '떡갈비'],
+    '순두부칼국수': ['칼국수'],
 }
 
 
@@ -246,6 +271,8 @@ def main():
             try:
                 kcal100 = float(row[col['에너지(kcal)']])
                 protein100 = float(row[col['단백질(g)']])
+                sodium_text = row[col['나트륨(mg)']].strip()
+                sodium100 = float(sodium_text) if sodium_text not in ('', '-') else None
                 base, _ = parse_amount(row[col['영양성분함량기준량']])
                 amount, unit = parse_amount(row[col['식품중량']])
             except ValueError:
@@ -261,6 +288,7 @@ def main():
                     'unit': unit,
                     'kcal': kcal100 * amount / base,
                     'protein': protein100 * amount / base,
+                    'sodium': None if sodium100 is None else sodium100 * amount / base,
                 }
 
     entries = []
@@ -275,12 +303,14 @@ def main():
             if part['origin'] not in origins:
                 origins.append(part['origin'])
         amount = sum(part['amount'] for part in parts)
+        sodium = None if any(part['sodium'] is None for part in parts) else round(sum(part['sodium'] for part in parts) / amount * 100)
         entries.append(
-            "  %s: { kcal100: %s, protein100: %s, dbServing: %d, dbName: %s, basis: %s },"
+            "  %s: { kcal100: %s, protein100: %s, sodium100: %s, dbServing: %d, dbName: %s, basis: %s },"
             % (
                 json.dumps(menu, ensure_ascii=False),
                 round(sum(part['kcal'] for part in parts) / amount * 100, 1),
                 round(sum(part['protein'] for part in parts) / amount * 100, 2),
+                'null' if sodium is None else sodium,
                 round(amount),
                 json.dumps(' + '.join(db_names), ensure_ascii=False),
                 json.dumps(' + '.join(origins), ensure_ascii=False),
@@ -288,14 +318,14 @@ def main():
         )
 
     out = '''/**
- * 식단표 메뉴별 1인 분량·열량·단백질
+ * 식단표 메뉴별 1인 분량·열량·단백질·나트륨
  *
  * 이 파일은 scripts/buildMealPlanNutrition.py 가 만든 것입니다. 직접 고치지 말고 스크립트의 짝짓기 표를 고쳐 주세요.
  *
  * - 출처: 식품의약품안전처 식품영양성분 데이터베이스(Korean Food Composition Database system, K-FCDB) 음식 DB.
  *   내려받은 엑셀 파일에서 필요한 메뉴의 수치만 한 차례 옮겼습니다(자동 수집·주기 조회 없음).
- * - kcal100·protein100 은 음식 100g(국물 음식은 100ml)당 열량과 단백질입니다.
- *   식단표의 1인 열량·단백질은 여기에 화면에서 정한 1인 분량을 곱해 계산합니다.
+ * - kcal100·protein100·sodium100 은 음식 100g(국물 음식은 100ml)당 열량·단백질·나트륨입니다.
+ *   식단표의 1인 수치는 여기에 화면에서 정한 1인 분량을 곱해 계산합니다. 국물 음식의 나트륨은 국물을 모두 먹었을 때 기준입니다.
  * - dbServing 은 DB에 적힌 "식품중량"입니다. 음식마다 기준이 달라 1인 분량으로 그대로 쓰지 않고 참고로만 둡니다.
  * - 자료 구분은 급식 기준을 우선합니다: 산업체급식 → 중고등학교급식 → 초등학교급식 → 외식 → 가정식.
  * - 앱 메뉴명과 DB 음식명이 다른 경우 가장 가까운 음식의 수치입니다(dbName 참고).
@@ -308,6 +338,8 @@ export interface MenuNutrition {
   kcal100: number
   /** 100g(ml)당 단백질(g) */
   protein100: number
+  /** 100g(ml)당 나트륨(mg). DB에 값이 없으면 null */
+  sodium100: number | null
   /** DB에 적힌 식품중량(참고용) */
   dbServing: number
   /** DB에 실린 음식명 */

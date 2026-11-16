@@ -25,6 +25,8 @@ export interface MenuLabInput {
   direction: MenuDirection
   avoidIssues: AvoidIssue[]
   memo: string
+  /** 계절 메뉴 판단에 쓰는 달(1~12). 없으면 오늘 날짜의 달 */
+  month?: number
 }
 
 export interface MenuRecommendationItem {
@@ -58,11 +60,6 @@ export interface MenuRecommendationResult {
   scenarios: string[]
   recommendations: MenuRecommendationItem[]
 }
-
-/** 국물이 있는 메인: 따로 국을 붙이지 않습니다. */
-const soupyMain = /(국|찌개|짬뽕|탕|라멘|우동|국수|전골)/
-/** 시간이 지나면 붇거나 식으면 질이 크게 떨어지는 메뉴 */
-const timeSensitiveMain = /(짬뽕|국수|우동|라면|라멘|면|튀김|돈가스)/
 
 type BudgetTier = 'economy' | 'standard'
 
@@ -210,7 +207,7 @@ function scoreMain(menu: MainMenuItem, input: MenuLabInput, risks: VocRisk[]) {
 
   // 야식·보온 지연·대기시간 조건에서는 붇거나 식기 쉬운 메뉴를 낮춥니다.
   const timeRisk = input.mealType === '야식' || risks.includes('보온 지연') || risks.includes('대기시간')
-  if (timeRisk && timeSensitiveMain.test(menu.name)) score -= 8
+  if (timeRisk && menu.timeSensitive) score -= 8
 
   return score
 }
@@ -224,6 +221,9 @@ const sideSimilarityGroups: Array<{ key: string; names: string[]; limit: number 
   { key: 'kimchi-group', names: ['김치', '깍두기', '무생채'], limit: 2 },
   { key: 'egg-group', names: ['계란찜', '계란말이', '스크램블에그', '오믈렛'], limit: 1 },
   { key: 'bean-sprout-group', names: ['콩나물무침', '콩나물'], limit: 1 },
+  { key: 'pickle-group', names: ['피클', '단무지', '짜사이'], limit: 1 },
+  { key: 'raw-salad-group', names: ['겉절이', '샐러드'], limit: 1 },
+  { key: 'pancake-group', names: ['김치전', '두부부침', '군만두'], limit: 1 },
 ]
 
 function sideGroupForName(sideName: string): string | undefined {
@@ -255,6 +255,10 @@ const ingredientTokens = [
   '연근',
   '마늘쫑',
   '묵',
+  '숙주',
+  '양배추',
+  '만두',
+  '잡채',
 ]
 
 function tokensOf(name: string) {
@@ -314,6 +318,7 @@ function selectSoups(menu: MainMenuItem, risks: VocRisk[], usedElsewhere: Set<st
       if (menu.bestSoups.includes(soup.name)) score += 4
       if (!soup.risks.some((risk) => risks.includes(risk))) score += 2
       if (risks.includes('염도') && soup.roles.includes('담백')) score += 1
+      if (soup.fitWith.includes(mealType)) score += 2
       // 조식에는 무거운 찌개·탕보다 맑은 국을 우선합니다.
       if (mealType === '조식' && /(찌개|탕|전골)/.test(soup.name)) score -= 4
       return { soup, score }
@@ -335,7 +340,7 @@ function getRiskPreventionLines(risks: VocRisk[]) {
 
 function getWatchSigns(risks: VocRisk[]) {
   return dedupeText(
-    risks.flatMap((risk) => menuVocRiskRuleMap[risk]?.warningSigns ?? []).map((line) => line.replace(/(됩니다|합니다|입니다|보입니다)\.$/, (m) => m)),
+    risks.flatMap((risk) => menuVocRiskRuleMap[risk]?.warningSigns ?? []),
     4,
   )
 }
@@ -373,13 +378,47 @@ function buildReason(menu: MainMenuItem, input: MenuLabInput, risks: VocRisk[]) 
   const fitLine = fits.length > 0 ? `${attachJosa(menu.name, '은/는')} ${fits.join(', ')}에 잘 맞는 메뉴입니다.` : `${attachJosa(menu.name, '은/는')} 조건에 무난하게 맞는 메뉴입니다.`
   // 면·튀김류는 시간이 지나면 붇거나 눅눅해지므로 보온 지연·대기시간에 약한 메뉴로 봅니다.
   const isWeakTo = (risk: VocRisk) =>
-    menu.risks.includes(risk) || ((risk === '보온 지연' || risk === '대기시간') && timeSensitiveMain.test(menu.name))
+    menu.risks.includes(risk) || ((risk === '보온 지연' || risk === '대기시간') && menu.timeSensitive)
   const avoided = risks.filter((risk) => menuControllableRisks.includes(risk) && !isWeakTo(risk))
   const weak = risks.filter((risk) => menuControllableRisks.includes(risk) && isWeakTo(risk))
   const lines = [fitLine]
   if (avoided.length > 0) lines.push(`고르신 VOC 중 ${avoided.join(', ')} 우려가 적은 편입니다.`)
   if (weak.length > 0) lines.push(`다만 ${weak.join(', ')}에는 주의가 필요합니다.`)
   return lines.join(' ')
+}
+
+/**
+ * 상위 3안을 고를 때 같은 차림 형태(정식·덮밥·면·국물·세트)가 겹치면 3점 낮춰 다시 비교합니다.
+ * 점수 차이가 크면 같은 형태라도 그대로 올라옵니다.
+ */
+function pickVaried(ranked: MainMenuItem[], scoreOf: (menu: MainMenuItem) => number) {
+  const picked: MainMenuItem[] = []
+  const remaining = [...ranked]
+  while (picked.length < 3 && remaining.length > 0) {
+    let bestIndex = 0
+    let bestScore = -Infinity
+    remaining.forEach((menu, index) => {
+      const sameForm = picked.filter((item) => item.form === menu.form).length
+      const sameCategory = picked.filter((item) => item.category === menu.category).length
+      const score = scoreOf(menu) - sameForm * 3 - sameCategory
+      if (score > bestScore) {
+        bestScore = score
+        bestIndex = index
+      }
+    })
+    picked.push(remaining.splice(bestIndex, 1)[0])
+  }
+  return picked
+}
+
+/** 점수가 같을 때 쓰는 순서. 입력 조건마다 달라져서 이름 순으로 늘 같은 메뉴가 올라오지 않게 합니다. */
+function tieOrder(text: string) {
+  let hash = 2166136261
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
 }
 
 function dedupeMenus(items: MainMenuItem[]) {
@@ -404,21 +443,24 @@ export function recommendMenus(input: MenuLabInput): MenuRecommendationResult {
   const preventionPoints = getRiskPreventionLines(avoidRisks)
   const watchSigns = getWatchSigns(avoidRisks)
 
-  const ranked = dedupeMenus(menuMainItems)
-    .map((menu) => ({ menu, score: scoreMain(menu, input, avoidRisks) }))
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score
-      return a.menu.name.localeCompare(b.menu.name)
-    })
+  const month = input.month ?? new Date().getMonth() + 1
+  // 계절이 맞지 않는 메뉴(여름 냉면 등)는 빼고, 식사 구분에 맞는 메뉴가 3개 이상이면 그 안에서만 고릅니다.
+  const inSeason = dedupeMenus(menuMainItems).filter((menu) => !menu.months || menu.months.includes(month))
+  const mealFitting = inSeason.filter((menu) => menu.mealFit.includes(input.mealType))
+  const pool = mealFitting.length >= 3 ? mealFitting : inSeason
+  const conditionKey = [input.mealType, input.budget, input.customBudget, input.customerType, input.direction, avoidRisks.join(',')].join('|')
+  const ranked = pool
+    .map((menu) => ({ menu, score: scoreMain(menu, input, avoidRisks), tie: tieOrder(`${conditionKey}|${menu.name}`) }))
+    .sort((a, b) => b.score - a.score || a.tie - b.tie)
     .map((entry) => entry.menu)
 
-  const topMenus = ranked.slice(0, 3)
+  const topMenus = pickVaried(ranked, (menu) => scoreMain(menu, input, avoidRisks))
   const recommendedNames = new Set(topMenus.map((menu) => menu.name))
   const usedSides = new Set<string>()
   const usedSoups = new Set<string>()
 
   const recommendations = topMenus.map((menu, index) => {
-    const hasOwnSoup = soupyMain.test(menu.name)
+    const hasOwnSoup = menu.hasSoup
     const selectedSoup = hasOwnSoup ? null : selectSoups(menu, avoidRisks, usedSoups, input.mealType)
     const selectedSides = selectSides(menu, avoidRisks, usedSides, selectedSoup?.name ?? '')
     selectedSides.forEach((side) => usedSides.add(side.name))

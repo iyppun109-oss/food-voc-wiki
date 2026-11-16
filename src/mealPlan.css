@@ -625,3 +625,40 @@
     break-inside: avoid;
   }
 }
+
+/* 나트륨: 목표 구간이 없는 참고 수치라 막대 없이 한 줄로 보여 줍니다. */
+.meal-plan__stats {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.meal-plan__sodium {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.meal-plan__sodium-ratio {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.meal-plan__sodium--high,
+.meal-plan__sodium--high .meal-plan__sodium-ratio {
+  color: var(--negative);
+}
+
+@media (max-width: 1099px) {
+  .meal-plan__stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .meal-plan__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

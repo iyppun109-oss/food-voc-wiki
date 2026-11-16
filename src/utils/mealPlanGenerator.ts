@@ -106,13 +106,22 @@ export interface ItemNutrition {
   servingG: number
   kcal: number
   proteinG: number
+  /** 나트륨(mg). DB에 값이 없으면 null. 국물 음식은 국물을 모두 먹었을 때 기준 */
+  sodiumMg: number | null
 }
+
+/** 성인 나트륨 만성질환위험감소섭취량(하루, 한국인 영양소 섭취기준) */
+export const SODIUM_DAILY_REFERENCE = 2300
+/** '염도'를 피할 요소로 고르면 한 끼 나트륨이 이 값을 넘지 않도록 점수를 깎습니다(하루 기준의 약 2/3). */
+const SODIUM_MEAL_SOFT_LIMIT = 1500
 
 export type NutritionStatus = 'ok' | 'low' | 'high' | 'partial' | 'none'
 
 export interface DayNutrition {
   kcal: number
   proteinG: number
+  /** 나트륨 합계(mg). 자료 있는 메뉴만 더한 값 */
+  sodiumMg: number
   servingG: number
   /** 영양 자료가 있는 메뉴 수 */
   known: number
@@ -145,6 +154,7 @@ export interface PlanSummary {
   /** 영양 자료가 모두 있는 날의 평균. 그런 날이 없으면 null */
   avgKcal: number | null
   avgProteinG: number | null
+  avgSodiumMg: number | null
   /** 영양 자료가 모두 있는 날 수 */
   completeDays: number
   /** 그중 열량·단백질 목표를 모두 채운 날 수 */
@@ -292,6 +302,7 @@ export function itemNutrition(item: PlanMenuItem, portions: Record<MealSlot, num
     servingG,
     kcal: (data.kcal100 * servingG) / 100,
     proteinG: (data.protein100 * servingG) / 100,
+    sodiumMg: data.sodium100 === null ? null : (data.sodium100 * servingG) / 100,
   }
 }
 
@@ -300,6 +311,7 @@ export function computeDayNutrition(day: PlanDay, options: MealPlanOptions): Day
   const { target, portions } = options
   let kcal = 0
   let proteinG = 0
+  let sodiumMg = 0
   let servingG = 0
   let known = 0
   const missing: string[] = []
@@ -312,6 +324,7 @@ export function computeDayNutrition(day: PlanDay, options: MealPlanOptions): Day
     known += 1
     kcal += data.kcal
     proteinG += data.proteinG
+    sodiumMg += data.sodiumMg ?? 0
     servingG += data.servingG
   })
 
@@ -332,6 +345,7 @@ export function computeDayNutrition(day: PlanDay, options: MealPlanOptions): Day
   return {
     kcal: Math.round(kcal),
     proteinG: round1(proteinG),
+    sodiumMg: Math.round(sodiumMg),
     servingG: Math.round(servingG),
     known,
     missing,
@@ -340,7 +354,7 @@ export function computeDayNutrition(day: PlanDay, options: MealPlanOptions): Day
   }
 }
 
-const slotAverageCache = new Map<string, { kcal: number; proteinG: number } | null>()
+const slotAverageCache = new Map<string, { kcal: number; proteinG: number; sodiumMg: number } | null>()
 
 /** 아직 고르지 않은 칸의 예상치: 그 칸 후보 메뉴들의 평균(자료 있는 메뉴만) */
 function slotAverage(row: PlanRow, type: DayType, options: MealPlanOptions) {
@@ -355,6 +369,7 @@ function slotAverage(row: PlanRow, type: DayType, options: MealPlanOptions) {
       : {
           kcal: values.reduce((sum, data) => sum + data.kcal, 0) / values.length,
           proteinG: values.reduce((sum, data) => sum + data.proteinG, 0) / values.length,
+          sodiumMg: values.reduce((sum, data) => sum + (data.sodiumMg ?? 0), 0) / values.length,
         }
   slotAverageCache.set(key, average)
   return average
@@ -372,6 +387,7 @@ function nutritionPenalty(candidate: PlanMenuItem, ctx: ScoreContext) {
 
   let kcal = own.kcal
   let proteinG = own.proteinG
+  let sodiumMg = own.sodiumMg ?? 0
   for (const other of planRows) {
     if (other === row) continue
     const item = day.cells[other]
@@ -380,11 +396,13 @@ function nutritionPenalty(candidate: PlanMenuItem, ctx: ScoreContext) {
       if (!known) continue
       kcal += known.kcal
       proteinG += known.proteinG
+      sodiumMg += known.sodiumMg ?? 0
     } else if (!isRowEmpty(day, other)) {
       const expected = slotAverage(other, day.type, options)
       if (!expected) continue
       kcal += expected.kcal
       proteinG += expected.proteinG
+      sodiumMg += expected.sodiumMg
     }
   }
 
@@ -392,6 +410,9 @@ function nutritionPenalty(candidate: PlanMenuItem, ctx: ScoreContext) {
   if (kcal > kcalMax) penalty += Math.min(14, (kcal - kcalMax) / 20)
   if (kcal < kcalMin) penalty += Math.min(14, (kcalMin - kcal) / 20)
   if (proteinG < proteinMin) penalty += Math.min(10, (proteinMin - proteinG) / 1.5)
+  if (options.avoid.includes('염도') && sodiumMg > SODIUM_MEAL_SOFT_LIMIT) {
+    penalty += Math.min(12, (sodiumMg - SODIUM_MEAL_SOFT_LIMIT) / 80)
+  }
   return penalty
 }
 
@@ -648,6 +669,9 @@ export function summarizePlan(plan: MealPlan): PlanSummary {
     if (nutrition.kcalStatus === 'partial' && nutrition.kcal < target.kcalMin * 0.8) {
       warnings.push(`${label} 영양 자료 없는 메뉴(${nutrition.missing.join(', ')})가 있어 합계가 ${nutrition.kcal}kcal로 낮게 나옵니다. 실제 분량을 확인해 주세요.`)
     }
+    if (nutrition.sodiumMg > SODIUM_DAILY_REFERENCE) {
+      warnings.push(`${label} 나트륨이 ${nutrition.sodiumMg.toLocaleString('ko-KR')}mg으로 하루 기준(${SODIUM_DAILY_REFERENCE.toLocaleString('ko-KR')}mg)을 한 끼에 넘습니다(국물을 모두 먹었을 때 기준).`)
+    }
     if (nutrition.proteinStatus === 'low') {
       if (nutrition.proteinG < target.proteinMin * 0.95) warnings.push(`${label} 단백질이 ${nutrition.proteinG}g으로 목표 ${target.proteinMin}g에 못 미칩니다.`)
     }
@@ -659,6 +683,7 @@ export function summarizePlan(plan: MealPlan): PlanSummary {
       : completeDays.reduce((sum, nutrition) => sum + pick(nutrition), 0) / completeDays.length
   const avgKcal = average((nutrition) => nutrition.kcal)
   const avgProteinG = average((nutrition) => nutrition.proteinG)
+  const avgSodiumMg = average((nutrition) => nutrition.sodiumMg)
 
   return {
     totalItems: items.length,
@@ -669,6 +694,7 @@ export function summarizePlan(plan: MealPlan): PlanSummary {
     dayNutrition,
     avgKcal: avgKcal === null ? null : Math.round(avgKcal),
     avgProteinG: avgProteinG === null ? null : round1(avgProteinG),
+    avgSodiumMg: avgSodiumMg === null ? null : Math.round(avgSodiumMg),
     completeDays: completeDays.length,
     onTargetDays: completeDays.filter(
       (nutrition) => nutrition.kcalStatus === 'ok' && nutrition.proteinStatus === 'ok',
@@ -677,7 +703,7 @@ export function summarizePlan(plan: MealPlan): PlanSummary {
   }
 }
 
-/** 엑셀에 붙여넣을 수 있는 탭 구분 텍스트. 메뉴명 아래에 하루 열량·단백질 합계를 붙입니다. */
+/** 엑셀에 붙여넣을 수 있는 탭 구분 텍스트. 메뉴명 아래에 하루 열량·단백질·나트륨 합계를 붙입니다. */
 export function planToTsv(plan: MealPlan) {
   const header = ['구분', ...plan.days.map((day) => `${day.date.slice(5).replace('-', '/')}(${day.weekdayLabel})`)]
   const typeRow = ['유형', ...plan.days.map((day) => day.type)]
@@ -687,5 +713,6 @@ export function planToTsv(plan: MealPlan) {
     nutrition.known === 0 ? '자료 없음' : nutrition.missing.length > 0 ? `${value} (일부 제외)` : String(value)
   const kcalRow = ['열량(kcal)', ...totals.map((nutrition) => mark(nutrition, nutrition.kcal))]
   const proteinRow = ['단백질(g)', ...totals.map((nutrition) => mark(nutrition, nutrition.proteinG))]
-  return [header, typeRow, ...rows, kcalRow, proteinRow].map((cols) => cols.join('\t')).join('\n')
+  const sodiumRow = ['나트륨(mg)', ...totals.map((nutrition) => mark(nutrition, nutrition.sodiumMg))]
+  return [header, typeRow, ...rows, kcalRow, proteinRow, sodiumRow].map((cols) => cols.join('\t')).join('\n')
 }

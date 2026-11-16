@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { type BudgetOption, type MenuLabInput, type MenuRecommendationItem, recommendMenus } from '../utils/menuRecommender'
 import { PageHero } from './PageHero'
-import { type CustomerType, type MenuDirection, type MealType, type VocRisk } from '../data/menuMainItems'
+import { type CustomerType, type MenuDirection, type MealType, type VocRisk, menuMainItems } from '../data/menuMainItems'
 
 type AvoidIssue = VocRisk | '없음'
 
@@ -127,6 +127,7 @@ export function MenuLab() {
         note="식단가는 참고 조건이며 식재료 원가는 계산하지 않습니다."
         stats={[
           { value: '3', unit: '안', label: '한 번에 제안' },
+          { value: String(menuMainItems.length), unit: '개', label: '메인 메뉴' },
           { value: String(avoidIssueOptions.length - 1), unit: '개', label: '반영하는 VOC 유형' },
         ]}
       />

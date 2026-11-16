@@ -97,7 +97,7 @@ App.tsx (탭: VOC 대응 | 메뉴 추천)
 | `data/vocCases.ts` | 3346 | 사례 301건과 카테고리 목록 | 사용 | **보존.** 분류 재검토만 별도로 진행 |
 | `utils/menuRecommender.ts` | 361 | 점수 계산과 조합 | 사용 | 재설계 대상 |
 | `data/menuMainItems.ts` | 350 | 메인 18종과 복제 로직 | 사용 | 복제 제거, 속성 보강 |
-| `data/menuSideItems.ts` | 88 | 반찬 42개, 역할·위험·궁합을 `index % n`으로 **자동 배정** | 사용 | 실제 속성으로 재작성 필요 |
+| `data/menuSideItems.ts` | 88 | 반찬 42개, 역할·위험·궁합을 `index % n`으로 **자동 배정** | 사용 | 실제 속성으로 재작성 필요 (2026-11-16 반영: 반찬 40개·국 14개 속성을 직접 기재, 메인 54개) |
 | `data/menuSoupItems.ts` | 123 | 국 12종 | 사용 | `fitWith`에 식사 구분이 들어 있어 메인 카테고리와 절대 일치하지 않음 |
 | `data/menuScenarioRules.ts`, `menuVocRiskRules.ts` | 140~161 | 시나리오, 위험별 예방 문구 | 사용 | 문구는 대체로 쓸 만함 |
 | `vite.config.js` / `vite.config.ts` | 6 / 6 | 내용 동일 | `.js`는 빌드, `.ts`는 `tsconfig.node.json` 타입 검사만 | 하나로 통합 가능(7장) |
