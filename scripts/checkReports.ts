@@ -175,6 +175,9 @@ for (const keyword of [
   '먹고 나서 입이 얼얼해요',
   '점심 후 배가 쓰려요',
   '먹고 나서 눈이 충혈됐어요',
+  '교육 끝나고 점심 먹고 쓰러졌어요',
+  '테이블에서 식사하다 쓰러졌어요',
+  '국 먹고 입안이 따가워요',
 ]) {
   const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
   if (!analysis.isHighRisk) fail(`안전망 누락: "${keyword}" → ${analysis.label}`)
@@ -213,6 +216,9 @@ for (const keyword of [
   '입원했던 직원 복귀 축하 케이크 문의',
   '먹고 나서 입안이 개운해요',
   '먹고 나서 얼얼할 정도로 매워요',
+  '눈이 빨개질 정도로 매워요',
+  '지난주 병원 갔다 와서 못 먹었는데 메뉴 다시 해 주세요',
+  '테이블이 쓰러졌어요',
 ]) {
   const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
   if (analysis.isHighRisk) fail(`안전망 과판정: "${keyword}" → ${analysis.label}`)
@@ -232,6 +238,8 @@ for (const keyword of ['반찬 추가해 주세요', '숨은 메뉴 있나요'])
   if (/식사 후|섭취 후/.test([report.customerMessage, report.clientReport].join('\n'))) fail('먹은 맥락 없는데 식사 후로 단정')
 }
 if (analyzeReportInput({ keyword: '먹고 나서 얼얼할 정도로 매워요', memo: '', categoryOverride: '' }, null).category !== '품질') fail('"얼얼할 정도로 매워요" → 품질 아님')
+if (analyzeReportInput({ keyword: '눈이 빨개질 정도로 매워요', memo: '', categoryOverride: '' }, null).category === '안전사고') fail('"눈이 빨개질" → 치아(이빨)로 오판정')
+if (analyzeReportInput({ keyword: '이빨이 깨졌어요', memo: '', categoryOverride: '' }, null).category !== '안전사고') fail('"이빨이 깨졌어요" → 안전사고 아님')
 
 // 먹은 뒤 이상하다는 말은 알레르기가 아니어도 중대
 if (!analyzeReportInput({ keyword: '계란 들어간 줄 몰랐는데 먹고 나서 이상해요', memo: '', categoryOverride: '' }, null).isHighRisk) fail('먹고 나서 이상해요 → 중대 아님')
