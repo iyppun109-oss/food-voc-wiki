@@ -547,13 +547,60 @@
   }
 }
 
+.meal-plan__basis {
+  font-size: 0.8125rem;
+  color: var(--text-2);
+}
+
+.meal-plan__basis summary {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.meal-plan__basis-table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.meal-plan__basis-table th,
+.meal-plan__basis-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+/* 식단표만 가로 A4로 인쇄합니다(다른 화면 인쇄에는 영향 없음). */
+@page plan {
+  size: A4 landscape;
+  margin: 12mm;
+}
+
+@media print {
+  .meal-plan__result {
+    page: plan;
+  }
+}
+
 @media print {
   .meal-plan__form,
   .meal-plan__actions,
   .meal-plan__swap,
   .meal-plan__notice,
+  .meal-plan__warnings,
+  .meal-plan__basis,
+  .meal-plan__daynav,
   .meal-plan .page-head {
     display: none !important;
+  }
+
+  .meal-plan__week + .meal-plan__week {
+    break-before: page;
   }
 
   .meal-plan__result {
@@ -576,5 +623,42 @@
 
   .meal-plan__week {
     break-inside: avoid;
+  }
+}
+
+/* 나트륨: 목표 구간이 없는 참고 수치라 막대 없이 한 줄로 보여 줍니다. */
+.meal-plan__stats {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.meal-plan__sodium {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.meal-plan__sodium-ratio {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.meal-plan__sodium--high,
+.meal-plan__sodium--high .meal-plan__sodium-ratio {
+  color: var(--negative);
+}
+
+@media (max-width: 1099px) {
+  .meal-plan__stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 767px) {
+  .meal-plan__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

@@ -101,7 +101,221 @@ const detectionCases: Array<[string, string, string?]> = [
   ['어제 저녁 먹고 열이 나요', '식중독 의심'],
   ['밥 먹고 배부른데 양은 적어요', '양 부족'],
   ['국 먹고 속이 쓰려요', '식중독 의심'],
+  // 2026-11 검수: 위험한 이물·기한 지난 음식
+  ['국에 철사', '이물 혼입'],
+  ['유리 조각이 나왔어요', '이물 혼입'],
+  ['스테이플러 심이 들어있어요', '이물 혼입'],
+  ['고무줄이 들어있음', '이물 혼입'],
+  ['볼트가 나옴', '이물 혼입'],
+  ['밥에 돌', '이물 혼입'],
+  ['손톱이 나왔어요', '이물 혼입'],
+  ['돌솥비빔밥이 짜요', '염도'],
+  ['유통기한 지난 요구르트', '품질'],
+  ['빵에 곰팡이 핀 것 같아요', '품질'],
+  ['반찬이 너무 매워요', '품질'],
+  ['나사 같은 게 씹힘', '이물 혼입'],
+  ['머리끈이 나왔어요', '이물 혼입'],
+  ['음식이 시큼해요', '품질'],
+  ['유리문 손잡이가 끈적해요', '위생 불만'],
+  ['화장실 벽에 곰팡이가 있어요', '위생 불만'],
+  ['빵에 곰팡이가 있는지 확인해 주세요', '품질'],
+  ['식판에 곰팡이', '위생 불만'],
+  ['컵에 곰팡이가 있어요', '위생 불만'],
+  ['수건에서 쉰내가 나요', '위생 불만'],
+  ['쉰 김치가 나왔어요', '품질'],
+  ['직원이 쉰 목소리로 불친절하게 대답함', '직원 응대'],
+  ['그릇에서 비린내가 나요', '위생 불만'],
+  ['생선이 비린내가 심해요', '품질'],
 ]
+
+// 묻기만 한 경우는 증상·불편·사과를 쓰지 않음
+for (const [keyword, flag] of [['어제 먹은 거 알레르기 성분 문의', 'isAllergyInquiry'], ['어제 먹은 반찬 원산지 문의', 'isGeneralInquiry']] as const) {
+  const form = { ...base, keyword }
+  const analysis = analyzeReportInput(form, null)
+  if (!analysis[flag]) fail(`문의 갈래로 판정되지 않음: "${keyword}"`)
+  if (analysis.isHighRisk) fail(`문의가 중대로 판정됨: "${keyword}"`)
+  const report = generateReportContents(form, null)
+  const all = [report.customerMessage, report.internalReport, report.clientReport].join('\n')
+  if (/증상이 나타나|증상이 있다는|번거로우셨|불편을 드려/.test(all)) fail(`문의인데 증상·불편 문구가 들어감: "${keyword}"`)
+}
+// 알레르기 반응은 어떤 말로 와도 중대(식사 후 이상 증상)
+for (const keyword of [
+  '알레르기 성분 문의했는데 두드러기가 났어요',
+  '알레르기 반응이 있었는데 원인 알려 주세요',
+  '땅콩 먹고 목이 부었어요',
+  '먹고 나서 입술이 부었어요',
+  '먹고 나서 가려워요',
+  '알레르기 표시가 없어서 먹었는데 입술이 부었어요',
+  '새우튀김 먹고 숨쉬기 힘들어요',
+  '점심 먹고 얼굴이 빨개졌어요',
+]) {
+  const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
+  if (analysis.category !== '식중독 의심' || !analysis.isAllergy || !analysis.isHighRisk || analysis.isAllergyInquiry || analysis.isAllergyLabelComplaint) {
+    fail(`알레르기 반응이 중대로 판정되지 않음: "${keyword}" → ${analysis.label}`)
+  }
+}
+// 안전망(양방향 20개): 먹은 뒤 몸 증상·의료 표현은 중대, 먹기 전·음식 맛·시설 표현은 중대 아님
+for (const keyword of [
+  '먹고 나서 의식을 잃었어요',
+  '먹은 뒤 응급실 갔어요',
+  '먹은 후 쌕쌕거려요',
+  '식사 후 기침이 계속 나요',
+  '새우 먹고 목이 간질간질해요',
+  '점심 먹고 가슴이 두근거려요',
+  '먹다가 쓰러졌어요',
+  '어제 먹은 뒤 병원 진료 받았어요',
+  '식사 후 손이 저려요',
+  '먹고 나서 식은땀이 나요',
+  '점심 먹고 쓰러졌어요',
+  '식사하다 기절했어요',
+  '먹고 나서 병원 갔어요',
+  '먹었더니 몸에 뭐가 났어요',
+  '국 먹고 입안이 헐었어요',
+  '먹은 뒤로 계속 화장실 가요',
+  '먹고 나서 입이 얼얼해요',
+  '점심 후 배가 쓰려요',
+  '먹고 나서 눈이 충혈됐어요',
+  '교육 끝나고 점심 먹고 쓰러졌어요',
+  '테이블에서 식사하다 쓰러졌어요',
+  '국 먹고 입안이 따가워요',
+]) {
+  const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
+  if (!analysis.isHighRisk) fail(`안전망 누락: "${keyword}" → ${analysis.label}`)
+  if (analysis.category === '기타') fail(`안전망: 중대인데 기타 문구: "${keyword}"`)
+  const report = generateReportContents({ ...base, keyword }, null)
+  if (/번거로우셨/.test(report.customerMessage)) fail(`안전망: 중대 사건에 '번거로우셨' 문구: "${keyword}"`)
+}
+for (const keyword of [
+  '밥 먹으러 왔는데 몸이 안 좋아서 일찍 갔어요',
+  '먹었는데 맛이 이상해요',
+  '줄이 길어서 숨이 막혀요',
+  '더워서 숨 막혀요',
+  '시끄러워서 어지러워요',
+  '먹고 싶은 메뉴가 없어요',
+  '에어컨 바람이 차가워요',
+  '식판이 차가워요',
+  '반찬 추가해 주세요',
+  '숨은 메뉴 있나요',
+  '병원 직원 식당인데 국이 짜요',
+  '직원들 위생 의식이 부족해 보여요',
+  '기절할 만큼 맛있어요',
+  '쓰러질 듯 배고픈데 줄이 길어요',
+  '119 안전교육 일정 문의',
+  '응급실 근무자 야간 식사 운영 문의',
+  '약 먹는 시간 맞추려면 몇 시까지 운영하나요',
+  '진료 받고 오느라 늦었는데 밥이 없어요',
+  '입원 환자 보호자도 이용 가능한가요',
+  '구급함 위치 안내가 없어요',
+  '먹고 나서 목이 말라요 물이 없어요',
+  '먹고 나서 배가 불러요',
+  '의자가 쓰러졌어요',
+  '화분이 쓰러졌어요',
+  '119 신고 훈련 때문에 식당 일찍 닫나요',
+  '동료가 진료 받았는데 식당 메뉴 추천해 주세요',
+  '어제 병원 갔다가 늦게 와서 품절됐어요',
+  '입원했던 직원 복귀 축하 케이크 문의',
+  '먹고 나서 입안이 개운해요',
+  '먹고 나서 얼얼할 정도로 매워요',
+  '눈이 빨개질 정도로 매워요',
+  '지난주 병원 갔다 와서 못 먹었는데 메뉴 다시 해 주세요',
+  '테이블이 쓰러졌어요',
+]) {
+  const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
+  if (analysis.isHighRisk) fail(`안전망 과판정: "${keyword}" → ${analysis.label}`)
+  if (analysis.category === '품질' && /(바람|식판)/.test(keyword)) fail(`시설·식기를 음식 품질로 판정: "${keyword}"`)
+}
+for (const keyword of ['반찬 추가해 주세요', '숨은 메뉴 있나요']) {
+  const report = generateReportContents({ ...base, keyword }, null)
+  if (/번거로우셨|불편을 드려/.test(report.customerMessage)) fail(`요청·문의에 불편 사과: "${keyword}"`)
+}
+
+// 먹지 않았다고 한 증상: 중대이되 '식사 후'로 단정하지 않음
+for (const keyword of ['안 먹었는데 배가 아파요', '못 먹고 나왔는데 어지러워요']) {
+  const form = { ...base, keyword }
+  const analysis = analyzeReportInput(form, null)
+  const report = generateReportContents(form, null)
+  if (analysis.category === '식중독 의심' && /식사 후|섭취 후/.test([report.customerMessage, report.clientReport].join('\n'))) fail(`먹지 않았는데 식사 후로 단정: "${keyword}"`)
+}
+for (const [keyword, flag] of [['알레르기 때문에 못 먹었어요', 'isAllergyLabelComplaint'], ['새우 못 먹는데 모르고 먹고 두드러기가 났어요', 'isAllergy']] as const) {
+  const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
+  if (!analysis[flag] || analysis.isHealthEvent) fail(`'못 먹' 처리가 알레르기 갈래를 덮음: "${keyword}"`)
+}
+if (analyzeReportInput({ keyword: '이빨 자국 있는 빵이 나왔어요', memo: '', categoryOverride: '' }, null).category === '안전사고') fail('"이빨 자국" → 치아 사고로 오판정')
+
+// 먹은 맥락 없는 쓰러짐: 중대이되 '식사 후'로 단정하지 않음
+{
+  const form = { ...base, keyword: '식당에서 갑자기 쓰러지셨어요' }
+  const analysis = analyzeReportInput(form, null)
+  if (!analysis.isHighRisk || !analysis.isHealthEvent) fail(`건강 이상 판정 오류: ${analysis.label}`)
+  const report = generateReportContents(form, null)
+  if (/식사 후|섭취 후/.test([report.customerMessage, report.clientReport].join('\n'))) fail('먹은 맥락 없는데 식사 후로 단정')
+}
+if (analyzeReportInput({ keyword: '먹고 나서 얼얼할 정도로 매워요', memo: '', categoryOverride: '' }, null).category !== '품질') fail('"얼얼할 정도로 매워요" → 품질 아님')
+if (analyzeReportInput({ keyword: '눈이 빨개질 정도로 매워요', memo: '', categoryOverride: '' }, null).category === '안전사고') fail('"눈이 빨개질" → 치아(이빨)로 오판정')
+if (analyzeReportInput({ keyword: '이빨이 깨졌어요', memo: '', categoryOverride: '' }, null).category !== '안전사고') fail('"이빨이 깨졌어요" → 안전사고 아님')
+
+// 먹은 뒤 이상하다는 말은 알레르기가 아니어도 중대
+if (!analyzeReportInput({ keyword: '계란 들어간 줄 몰랐는데 먹고 나서 이상해요', memo: '', categoryOverride: '' }, null).isHighRisk) fail('먹고 나서 이상해요 → 중대 아님')
+
+// 거짓 양성: 음식·증상과 무관한 붓다·가리다·반응·있었·숨·차갑다는 중대로 올리지 않음
+for (const [keyword, notCategory] of [
+  ['국을 부어 주는데 양이 너무 적어요', '식중독 의심'],
+  ['편식이라 가려 먹는데 반찬이 단조로워요', '식중독 의심'],
+  ['직원 반응이 너무 차가워요', '품질'],
+  ['숨은 메뉴가 있나요', '식중독 의심'],
+  ['눈이 부어서 왔는데 조명이 너무 밝아요', '식중독 의심'],
+  ['알레르기 표시가 있었는데 글씨가 작아요', ''],
+  ['알레르기 표시가 잘못되어 있었어요', ''],
+  ['알레르기 정보 메뉴판에 추가해 주세요', ''],
+  ['라면이 불었어요', '식중독 의심'],
+] as const) {
+  const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
+  if (notCategory && analysis.category === notCategory) fail(`거짓 양성: "${keyword}" → ${analysis.category}`)
+  if (analysis.isHighRisk) fail(`거짓 양성(중대): "${keyword}" → ${analysis.label}`)
+}
+if (analyzeReportInput({ keyword: '직원 반응이 너무 차가워요', memo: '', categoryOverride: '' }, null).category !== '직원 응대') fail('"직원 반응이 차가워요" → 직원 응대 아님')
+
+// 증상이 없으면 증상을 쓰지 않음
+for (const [keyword, flag] of [
+  ['알레르기 표시가 없어요', 'isAllergyLabelComplaint'],
+  ['알레르기 때문에 못 먹었어요', 'isAllergyLabelComplaint'],
+  ['알레르기 표시가 있었는데 글씨가 작아요', 'isAllergyLabelComplaint'],
+  ['알레르기 정보 메뉴판에 추가해 주세요', 'isAllergyInquiry'],
+  ['땅콩 들어갔는지 궁금해요', 'isAllergyInquiry'],
+  ['새우 알레르기 있는데 오늘 국에 들어갔나요?', 'isAllergyInquiry'],
+] as const) {
+  const form = { ...base, keyword }
+  const analysis = analyzeReportInput(form, null)
+  if (!analysis[flag]) fail(`알레르기 갈래 판정 오류: "${keyword}" → ${analysis.label}`)
+  const report = generateReportContents(form, null)
+  if (/증상이 나타나|증상이 있다는/.test([report.customerMessage, report.internalReport, report.clientReport].join('\n'))) fail(`증상 없는데 증상 문구: "${keyword}"`)
+}
+
+// 겪은 일을 말하면 '확인해 주세요'로 끝나도 변질 제보(중대)
+for (const keyword of ['유통기한 지난 우유 마셨는데 확인 부탁', '곰팡이 핀 빵 확인해 주세요', '상한 것 같은데 확인 요청', '어제 먹은 김밥이 쉰 것 같은데 알려 주세요']) {
+  const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
+  if (!analysis.isSpoiled || !analysis.isHighRisk || analysis.isStorageInquiry) fail(`변질 제보가 문의로 낮아짐: "${keyword}"`)
+}
+
+// 문의는 불만·변질로 단정하지 않음
+for (const keyword of ['유통기한 확인 요청드려요', '우유가 상했는지 확인해 주세요', '빵에 곰팡이가 있는지 확인해 주세요']) {
+  const form = { ...base, keyword, menuName: '우유' }
+  const analysis = analyzeReportInput(form, null)
+  if (!analysis.isStorageInquiry) fail(`문의 갈래로 판정되지 않음: "${keyword}"`)
+  const report = generateReportContents(form, null)
+  const all = [report.customerMessage, report.internalReport, report.clientReport].join('\n')
+  if (/기대에 미치지|좋지 않다는|상태가 좋지 않아/.test(all)) fail(`문의인데 불만 문구가 들어감: "${keyword}"`)
+}
+
+// 위험한 이물·상한 음식은 중대 기준
+for (const keyword of ['국에 철사', '유리 조각이 나왔어요', '유통기한 지난 요구르트']) {
+  if (!analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null).isHighRisk) fail(`고위험 판정 누락: "${keyword}"`)
+}
+// 위험하지 않은 유리·문의는 중대로 올리지 않음
+if (analyzeReportInput({ keyword: '유리 창문이 더러워요', memo: '', categoryOverride: '' }, null).category === '이물 혼입') fail('판정: "유리 창문" → 이물 혼입')
+for (const keyword of ['밥에 돌', '머리카락이 나왔어요', '유통기한 확인 요청드려요']) {
+  if (analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null).isHighRisk) fail(`고위험 과판정: "${keyword}"`)
+}
 for (const [keyword, expected, sub] of detectionCases) {
   const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
   if (analysis.category !== expected) fail(`판정: "${keyword}" → ${analysis.category} (기대 ${expected})`)
@@ -163,7 +377,7 @@ const keywordFor: Record<string, string> = {
   안전사고: '돌 씹고 이가 깨짐',
   기타: '대기 줄이 길어요',
 }
-const extraKeywords = ['고기가 덜 익었어요', '국물에 데었어요']
+const extraKeywords = ['고기가 덜 익었어요', '국물에 데었어요', '유통기한 지난 우유', '국에서 유리 조각이 나왔어요']
 
 function subsets<T>(items: T[]): T[][] {
   return items.reduce<T[][]>((acc, item) => acc.concat(acc.map((set) => [...set, item])), [[]])

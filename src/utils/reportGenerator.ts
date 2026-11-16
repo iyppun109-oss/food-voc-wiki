@@ -13,7 +13,7 @@ import {
   QUALITY_COOKING_STATUS_KEYWORDS,
   QUALITY_COOKING_STATUS_PATTERNS,
   type ReportCategory,
-} from '../data/reportSentenceTemplates'
+} from '../data/reportCategoryRules'
 import { type VocCase } from '../data/vocCases'
 import { attachJosa, joinKorean } from './koreanJosa'
 
@@ -110,6 +110,8 @@ interface CategoryKnowledge {
   clientCheck: string
   /** 고객사용 재발 방지 */
   clientPrevention: string
+  /** 문의처럼 사과할 일이 아닌 경우 고객용 사과 문장을 넣지 않습니다. */
+  noApology?: boolean
 }
 
 const sameBatchCheck = (what: string) => ({ text: `동일 조리분 내 ${what} 여부 확인 예정임.`, sameBatch: true, topic: /동일 조리분|같은 시간/ })
@@ -475,6 +477,106 @@ const cookingQuality: Partial<CategoryKnowledge> = {
   clientPrevention: '향후 메뉴별 가열 시간과 조리 온도 기준을 재교육하고, 제공 전 조리 상태 확인을 강화하겠습니다.',
 }
 
+/** 상했거나 유통기한이 지난 음식: 품질의 세부 갈래(중대 기준) */
+const spoiledQuality: Partial<CategoryKnowledge> = {
+  label: '품질 / 변질·유통기한 경과 의심',
+  clientLabel: '변질·유통기한 경과 의심',
+  incident: '{m}의 변질 또는 유통기한 경과가 의심된다는 고객 제보 접수됨(긴급 확인 대상).',
+  customerEmpathy: '{t}의 상태가 좋지 않아 많이 놀라셨을 것 같습니다.',
+  customerCheck:
+    '드신 뒤 몸이 불편하시면 바로 말씀해 주십시오. 해당 제품의 유통기한과 보관 상태, 같은 날 들어온 제품을 바로 확인하겠습니다.',
+  customerPrevention: '확인 결과에 따라 입고 검수와 보관 기준을 다시 점검하겠으며, 확인되는 내용은 신속히 안내드리겠습니다.',
+  internalChecks: [
+    { text: '해당 제품 회수·보관 및 유통기한·제조번호 확인 필요함.', topic: /유통기한|제조번호|회수|보관/ },
+    { text: '고객 건강 이상 여부 확인 필요함.' },
+    { text: '동일 입고분의 유통기한·보관 상태 확인 예정임.', sameBatch: true, topic: /입고분|동일/ },
+    { text: '냉장·냉동 보관 온도 기록 확인 예정임.', topic: /온도/ },
+  ],
+  causes: [],
+  internalPrevention: ['입고 검수 시 유통기한 확인을 강화하겠음.', '선입선출과 보관 온도 점검을 강화하겠음.'],
+  clientCheck: '해당 제품의 유통기한과 제조번호, 동일 입고분, 보관 온도 기록을 확인하겠으며, 확인 전까지 원인을 단정하지 않겠습니다.',
+  clientPrevention: '확인 결과에 따라 입고 검수와 선입선출, 보관 온도 관리를 강화하겠습니다.',
+}
+
+/** 유통기한·보관 상태를 확인해 달라는 문의: 불만이나 변질을 단정하지 않습니다. */
+const storageInquiry: Partial<CategoryKnowledge> = {
+  label: '품질 / 유통기한·보관 상태 문의',
+  clientLabel: '유통기한·보관 상태 문의',
+  incident: '{m}의 유통기한·보관 상태 확인 요청 접수됨.',
+  customerEmpathy: '{t}의 유통기한과 보관 상태를 문의해 주셔서 감사합니다.',
+  customerCheck: '해당 제품의 유통기한과 보관 상태를 바로 확인해 안내드리겠습니다.',
+  customerPrevention: '앞으로도 입고 검수와 보관 관리를 꼼꼼히 하겠습니다.',
+  internalChecks: [
+    { text: '해당 제품의 유통기한·제조번호 확인 예정임.', topic: /유통기한|제조번호/ },
+    { text: '보관 온도 기록 확인 예정임.', topic: /온도/ },
+    { text: '확인 결과 고객 안내 필요함.' },
+  ],
+  causes: [],
+  internalPrevention: ['입고 검수 시 유통기한 확인을 유지하겠음.'],
+  clientCheck: '해당 제품의 유통기한과 보관 상태를 확인해 고객에게 안내하겠습니다.',
+  clientPrevention: '입고 검수와 보관 관리를 계속 점검하겠습니다.',
+  noApology: true,
+}
+
+/** 알레르기 유발 성분·원재료를 묻는 문의: 증상이 있었다고 쓰지 않습니다. */
+const allergyInquiry: Partial<CategoryKnowledge> = {
+  label: '알레르기·원재료 문의',
+  clientLabel: '알레르기·원재료 문의',
+  incident: '{m}의 알레르기 유발 성분·원재료 문의 접수됨.',
+  customerEmpathy: '{t}의 알레르기 유발 성분에 대해 말씀해 주셔서 감사합니다.',
+  customerCheck: '해당 메뉴의 원재료와 알레르기 유발 성분을 확인해 안내드리고, 표시가 필요한 부분은 보완하겠습니다. 식사 후 불편한 증상이 있으시면 바로 말씀해 주십시오.',
+  customerPrevention: '앞으로도 메뉴별 알레르기 유발 성분 표시를 꼼꼼히 하겠습니다.',
+  internalChecks: [
+    { text: '해당 메뉴의 원재료·알레르기 유발 성분 확인 예정임.', topic: /원재료|성분/ },
+    { text: '확인 결과 고객 안내 필요함.' },
+  ],
+  causes: [],
+  internalPrevention: ['메뉴별 알레르기 유발 성분 표시를 점검하겠음.'],
+  clientCheck: '해당 메뉴의 원재료와 알레르기 유발 성분을 확인해 고객에게 안내하겠습니다.',
+  clientPrevention: '메뉴별 알레르기 유발 성분 표시를 계속 점검하겠습니다.',
+  noApology: true,
+}
+
+/** 알레르기 표시·안내가 부족하다는 불만: 증상이 있었다고 쓰지 않고, 표시 누락을 사과합니다. */
+const allergyLabelComplaint: Partial<CategoryKnowledge> = {
+  label: '알레르기 표시·안내 불만',
+  clientLabel: '알레르기 표시·안내 부족',
+  incident: '{m}의 알레르기 유발 성분 표시·안내가 부족하다는 고객 의견 접수됨.',
+  customerEmpathy: '{t}의 알레르기 유발 성분 안내가 부족해 식사에 어려움이 있으셨을 것 같습니다.',
+  apologyScope: '식사',
+  customerCheck: '해당 메뉴의 원재료와 알레르기 유발 성분을 확인해 안내드리고, 표시가 빠진 부분은 바로 보완하겠습니다.',
+  customerPrevention: '메뉴별 알레르기 유발 성분 표시를 다시 점검하겠습니다. 혹시 식사 후 불편한 증상이 있으시면 바로 말씀해 주십시오.',
+  internalChecks: [
+    { text: '해당 메뉴의 원재료·알레르기 유발 성분 확인 예정임.', topic: /원재료|성분/ },
+    { text: '배식대 알레르기 표시 상태 확인 예정임.', topic: /표시/ },
+    { text: '고객 증상 여부 확인 필요함.' },
+  ],
+  causes: ['알레르기 표시 누락', '메뉴 변경 후 표시 미갱신'],
+  internalPrevention: ['메뉴별 알레르기 유발 성분 표시를 점검하겠음.', '메뉴가 바뀌면 표시도 함께 갱신하겠음.'],
+  clientCheck: '해당 메뉴의 원재료와 배식대 알레르기 표시 상태를 확인하겠습니다.',
+  clientPrevention: '메뉴별 알레르기 유발 성분 표시 점검을 강화하겠습니다.',
+}
+
+/** 알레르기 유발 식품 이름(성분 문의 판단용) */
+const allergenNames = /(땅콩|새우|게살|우유|계란|달걀|밀가루|대두|견과|호두|잣|조개|굴|홍합|복숭아|토마토|메밀|고등어|오징어|돼지고기|쇠고기|소고기|닭고기)/
+
+/** 불만 없이 묻기만 한 문의(원산지·운영 시간 등): 불편·사과 문장을 쓰지 않습니다. */
+const generalInquiry: Partial<CategoryKnowledge> = {
+  label: '고객 문의',
+  clientLabel: '고객 문의',
+  menuRelated: false,
+  incident: '"{kw}" 관련 고객 문의·요청 접수됨.',
+  customerEmpathy: '말씀해 주셔서 감사합니다.',
+  customerCheck: '말씀하신 내용을 확인해 안내드리겠습니다.',
+  customerPrevention: '앞으로도 궁금하신 점은 언제든 말씀해 주십시오.',
+  internalChecks: [{ text: '문의 내용 확인 예정임.' }, { text: '확인 결과 고객 안내 필요함.' }],
+  causes: [],
+  internalPrevention: ['자주 받는 문의는 안내문에 반영하겠음.'],
+  clientCheck: '문의 내용을 확인해 고객에게 안내하겠습니다.',
+  clientPrevention: '자주 받는 문의는 안내문에 반영하겠습니다.',
+  noApology: true,
+}
+
 /** 화상·베임·넘어짐 등 부상: 안전사고의 세부 갈래 */
 const injurySafety: Partial<CategoryKnowledge> = {
   label: '안전사고 / 부상',
@@ -498,8 +600,8 @@ const injurySafety: Partial<CategoryKnowledge> = {
 
 const injuryKeywords = /(화상|데었|데였|데임|베었|베임|베였|찔림|찔렸|미끄러(졌|짐|져)|넘어(졌|짐|져)|다쳤|다침)/
 /** 치아 사고로 볼 단어. '돌솥'의 '돌'처럼 다른 낱말 속 글자는 빼도록 좁혀 둡니다. */
-const dentalKeywords = /(치아|이빨|이가\s?(깨|부러|빠|아프)|파절|돌(을|이)?\s?씹|돌조각|돌멩이|딱딱한\s?(물질|이물|것))/
-const allergyKeywords = /(알레르기|알러지|두드러기|가려|발진)/
+const dentalKeywords = /(치아|이빨(?!개|갛|간|게|\s?자국)|이가\s?(깨|부러|빠|아프)|파절|돌(을|이)?\s?씹|돌조각|돌멩이|딱딱한\s?(물질|이물|것))/
+const allergyKeywords = /(알레르기|알러지|두드러기|가려|간지|발진|부었|부어|붓|따끔|빨갛|빨개|숨\s?(이|을)?\s?(차|막|가빠|쉬기|못\s?쉬)|호흡)/
 
 /** 알레르기 의심: 식사 후 이상 증상의 세부 갈래 */
 const allergySymptom: Partial<CategoryKnowledge> = {
@@ -634,7 +736,73 @@ export interface ReportAnalysis {
   isInjury: boolean
   isAllergy: boolean
   isHighRisk: boolean
+  /** 상했거나 유통기한이 지난 음식 */
+  isSpoiled: boolean
+  /** 유통기한·보관 상태 확인 문의(불만·변질로 단정하지 않음) */
+  isStorageInquiry: boolean
+  /** 알레르기 유발 성분·원재료 문의(증상 없음) */
+  isAllergyInquiry: boolean
+  /** 알레르기 표시·안내 불만(증상 없음) */
+  isAllergyLabelComplaint: boolean
+  /** 유형 없는 순수 문의 */
+  isGeneralInquiry: boolean
+  /** 먹은 맥락 없는 건강 이상(쓰러짐 등) */
+  isHealthEvent: boolean
   label: string
+}
+
+/** 삼키거나 씹으면 다칠 수 있는 이물: 이물 혼입이어도 중대 기준으로 보고합니다. */
+const hazardousForeign = /(유리(?!\s?(컵|창|문|병))|철사|쇳조각|금속|쇠붙이|철수세미|스테이플|호치키스|볼트|너트|나사|칼날|(^|\s)못(이|이나|\s?조각))/
+/** 상하거나 기한이 지난 음식: 품질이어도 식중독 위험이 있어 중대 기준으로 보고합니다. */
+const spoiledFood = /(유통기한|소비기한|기한(이)?\s?지난|곰팡|상했|상한|변질|쉰내|쉬었|쉰\s?(것|거|맛|듯|김치|밥|국|반찬|우유|나물|떡|빵|김밥|도시락|음식|요구르트)|쉬어)/
+/** 확인을 부탁하는 문의는 실제 변질 제보가 아니므로 중대로 올리지 않습니다('유통기한 확인 요청'). */
+const inquiryOnly = /(요청|문의|궁금|알려\s?주|확인\s?(부탁|해\s?주)|있나요|있을까요|되나요|추가해\s?주|바꿔\s?주)/
+/** 실제로 겪은 일을 말하는 표현. '상했는지 확인해 주세요'처럼 묻는 말(~는지·~인지) 안의 단어는 빼고 봅니다. */
+const observedFact = /(마셨|먹었|먹은|먹고|먹다|드셨|드시고|핀|피었|폈|났|지난|지났|상한|상했|시큼|쉰|쉬었|변질|냄새)/
+/**
+ * 안전망: 단어 목록을 하나씩 늘리는 대신 구조로 막습니다.
+ * - 의료·응급 표현이 있으면 유형과 상관없이 중대로 봅니다.
+ * - 먹은 뒤(완료형) 몸·증상 표현이 이어지는데 유형이 정해지지 않았으면 '식사 후 이상 증상'으로 봅니다.
+ */
+const medicalTerms = /(응급실\s?(에|으로|을)?\s?(갔|가서|실려|이송|다녀|왔)|병원\s?(에|으로|을)?\s?(갔|가서|실려|이송|다녀왔)|119\s?(를|에)?\s?(불렀|불러|신고|와서|출동)|구급차|의식\s?(을|이)?\s?(잃|없)|기절했|기절해서|기절함|기절하셨|쓰러졌|쓰러져서|쓰러짐|쓰러지셨|쓰러지셔서|실신했|실신해서|실신하셨|실려\s?갔|입원했|입원해서|입원함|진료\s?(를)?\s?받았|약\s?(을)?\s?(처방\s?받|먹었))/
+const eatenThen = /(?<!(?:못|안)\s?)(?<eat>먹고|먹은\s?(?:뒤|후|다음)|먹은\s?뒤로|먹었더니|먹었는데|먹다가|마시고|마신\s?(?:뒤|후)|마셨더니|드시고|드신\s?(?:뒤|후)|식사\s?(?:후|하고|하다가|하다|중)|(?:아침|점심|저녁|야식)\s?(?:후|먹고|먹은\s?후))\S*\s?(?<rest>.*)/
+const bodySymptom = /(기침|쌕쌕|간질|목이(?!\s?(마르|말라|말랐))|목에|목구멍|숨|호흡|피부|가슴|심장|두근|열이|열나|오한|배가\s?(아|쓰|살살|꾸르|불편|뒤틀)|배\s?(아|통)|복통|속이|머리가\s?(아|어지)|두통|어지|토했|토할|구토|설사|화장실\s?(을|에)?\s?(계속|자주|여러)|(계속|자주|여러\s?번)\s?화장실|두드러기|두드러|뭐가\s?(났|돋)|가려|부었|붓|빨개|빨갛|따끔|얼얼|헐었|헐어|입안이\s?(헐|따끔|따가|따갑|부|간지|얼얼)|충혈|눈이\s?(빨|부|가려|충혈)|저려|저림|마비|떨려|식은땀|몸이)/
+
+/** 의료 사건처럼 보여도 사람 일이 아니거나(의자가 쓰러짐) 훈련·문의·축하 맥락이면 중대로 올리지 않습니다. */
+const medicalContextExclude = /(훈련|교육\s?(일정|문의|때문|으로)|추천|문의|축하|복귀|일정)/
+/** 물건이 쓰러진 경우: 물건 이름이 '쓰러/넘어' 바로 앞의 주어일 때만 뺍니다('테이블에서 식사하다 쓰러졌어요'는 사람 일). */
+const objectFell = /(의자|화분|배식대|간판|입간판|테이블|선반|쓰레기통|우산|자전거|물건|박스|상자|기둥|정수기)\s?(이|가)\s?(쓰러|넘어)/
+/** 맛 표현: '얼얼할 정도로 매워요', '입안이 개운해요'는 증상이 아님 */
+const tasteContext = /(매워|맵|매운|짜|짭|개운|시원|상큼|맛있|고소)/
+/** 식당 이용 중 건강 이상(먹은 맥락 없이 쓰러짐 등): 식사 원인을 단정하지 않습니다. */
+const healthEvent: Partial<CategoryKnowledge> = {
+  label: '고객 건강 이상(확인 필요)',
+  clientLabel: '고객 건강 이상',
+  menuRelated: false,
+  incident: '식당 이용 중 고객 건강 이상 관련 제보 접수됨(긴급 확인 대상).',
+  customerEmpathy: '몸이 불편하셨다는 말씀을 듣고 많이 걱정됩니다.',
+  apologyScope: '식당 이용',
+  customerCheck: '무엇보다 고객님의 상태가 가장 중요합니다. 지금 상태를 알려 주시면 진료 안내 등 필요한 사항을 도와드리겠습니다.',
+  customerPrevention: '당시 상황을 확인해 신속히 안내드리겠습니다.',
+  internalChecks: [
+    { text: '고객 상태 확인 및 필요 시 의료기관 안내 필요함.' },
+    { text: '당시 경위와 당일 식사 여부·메뉴 확인 예정임.' },
+  ],
+  causes: [],
+  internalPrevention: ['확인 결과에 따라 필요한 조치를 마련하겠음.'],
+  clientCheck: '고객 상태와 당시 경위, 당일 식사 여부를 확인하겠으며, 확인 전까지 원인을 단정하지 않겠습니다.',
+  clientPrevention: '확인 결과에 따라 필요한 조치를 마련하겠습니다.',
+  noApology: true,
+}
+
+/** 알레르기 성분을 묻는 말 */
+const allergyQuestion = /(문의|궁금|알려\s?주|성분|들어\s?(갔|가|있)|있나요|인가요|되나요|확인\s?(부탁|해\s?주)|추가해\s?주|표시해\s?주|요청)/
+/** 알레르기 증상을 말하는 표현 */
+const allergySymptomWords = /(두드러기|가려|간지|붓|부었|부어|호흡|숨\s?(이|을)?\s?(차|막|가빠|쉬기|못\s?쉬)|(반응|증상)(이|가)?\s?(있었|생겼|나타|올라|났)|발진|두통|토했|구토|설사|복통|배가|아파|아프|따끔|빨개|빨갛|올라왔|이상해|어지러)/
+/** 불만을 말하는 표현(있으면 순수 문의로 보지 않음) */
+const complaintWords = /(불편|불만|불친절|기다|늦|더러|화가|화나|짜증|실망|최악|별로)/
+function statesObservedFact(text: string) {
+  return observedFact.test(text.replace(/\S*(는지|은지|인지|던지)/g, ' '))
 }
 
 /**
@@ -661,6 +829,33 @@ export function analyzeReportInput(
     fromCase = true
   }
 
+  // 안전망: 먹은 뒤 몸 증상을 말했는데 유형이 정해지지 않았으면 식사 후 이상 증상으로 봅니다.
+  const afterEating = source.match(eatenThen)
+  const restAfterEating = afterEating?.groups?.rest ?? ''
+  const rawSymptom = restAfterEating.match(bodySymptom)
+  // '얼얼할 정도로 매워요', '입안이 개운해요'처럼 맛을 말한 경우는 증상으로 보지 않습니다.
+  const safetyNetSymptom = rawSymptom && !(tasteContext.test(restAfterEating) && /^(얼얼|입안|따끔|시원)/.test(rawSymptom[1])) ? rawSymptom : null
+  let safetyEvidence: string[] = []
+  // 의료 사건은 사람 일이고 훈련·문의 맥락이 아니며, 먹은 뒤이거나 몸 증상·의식 관련일 때만 봅니다.
+  const medicalMatch = source.match(medicalTerms)
+  const medicalEvent =
+    medicalMatch &&
+    !objectFell.test(source) &&
+    // 먹은 맥락이 있으면 훈련·문의 같은 말이 있어도 사람의 일로 봅니다.
+    (afterEating || (!medicalContextExclude.test(source) && (bodySymptom.test(source) || /(기절|실신|의식|구급차|쓰러)/.test(medicalMatch[1]))))
+      ? medicalMatch
+      : null
+  const healthEventOnly = detected === '기타' && !fromCase && Boolean(medicalEvent) && !afterEating
+  if (detected === '기타' && !fromCase && afterEating?.groups && safetyNetSymptom) {
+    detected = '식중독 의심'
+    safetyEvidence = [afterEating.groups.eat, safetyNetSymptom[1]]
+  } else if (detected === '기타' && !fromCase && medicalEvent) {
+    // 쓰러짐·응급실 같은 의료 사건은 다른 유형이 없으면 식사 후 이상 증상으로 보고 고객 상태부터 확인합니다.
+    detected = '식중독 의심'
+    safetyEvidence = afterEating?.groups ? [afterEating.groups.eat, medicalEvent[1]] : [medicalEvent[1]]
+  }
+  const mentionsMedical = Boolean(medicalEvent)
+
   const override = form.categoryOverride && reportCategoryOptions.includes(form.categoryOverride) ? form.categoryOverride : ''
   const category = (override || detected) as CategoryType
   const lower = source.toLowerCase()
@@ -671,12 +866,39 @@ export function analyzeReportInput(
       QUALITY_COOKING_STATUS_KEYWORDS.some((keyword) => noSpace.includes(keyword.replace(/\s+/g, ''))))
   const isInjury = category === '안전사고' && injuryKeywords.test(lower) && !dentalKeywords.test(lower)
   const isAllergy = category === '식중독 의심' && allergyKeywords.test(lower)
-  const kb = resolveKnowledge(category, isCookingQuality, isInjury, isAllergy)
+  // '확인해 주세요'로 끝나도 '곰팡이 핀', '유통기한 지난 우유 마셨는데'처럼 겪은 일을 말하면 변질 제보로 봅니다.
+  const isInquiry = inquiryOnly.test(lower) && !statesObservedFact(lower)
+  const isSpoiled = category === '품질' && spoiledFood.test(lower) && !isInquiry
+  const isStorageInquiry = category === '품질' && spoiledFood.test(lower) && isInquiry
+  const mentionsAllergy = /(알레르기|알러지)/.test(lower)
+  const hasSymptom = allergySymptomWords.test(lower)
+  // 알레르기 성분을 묻기만 하고 증상은 말하지 않은 경우('땅콩 들어갔는지 궁금해요'처럼 알레르기 식품을 물어도 포함)
+  const isAllergyInquiry =
+    !hasSymptom &&
+    allergyQuestion.test(lower) &&
+    ((category === '식중독 의심' && mentionsAllergy) || (category === '기타' && allergenNames.test(lower) && /(들어|성분|함유|포함)/.test(lower)))
+  // 알레르기 표시·안내 불만: 증상도 질문도 없이 알레르기를 말한 경우('알레르기 표시가 없어요')
+  const isAllergyLabelComplaint = category === '식중독 의심' && mentionsAllergy && !hasSymptom && !isAllergyInquiry
+  // 유형이 정해지지 않은 순수 문의(원산지·운영 시간 등)
+  const isGeneralInquiry = category === '기타' && !isAllergyInquiry && inquiryOnly.test(lower) && !complaintWords.test(lower)
+  // '안 먹었는데 배가 아파요'처럼 먹지 않았다고 했으면 식사 후로 단정하지 않습니다.
+  const notEaten = /(안|못)\s?(먹|드시|드셨|마시|마셨)/.test(lower)
+  const isHealthEvent =
+    (healthEventOnly || (notEaten && !afterEating && !/(알레르기|알러지)/.test(lower))) && category === '식중독 의심'
+  const kb = isHealthEvent
+    ? { ...knowledge[category], ...healthEvent }
+    : isAllergyInquiry
+    ? { ...knowledge[category], ...allergyInquiry }
+    : isAllergyLabelComplaint
+      ? { ...knowledge[category], ...allergyLabelComplaint }
+      : isGeneralInquiry
+      ? { ...knowledge[category], ...generalInquiry }
+      : resolveKnowledge(category, isCookingQuality, isInjury, isAllergy, isSpoiled, isStorageInquiry)
 
   return {
     category,
     detected,
-    evidence: fromCase ? [] : detection.evidence,
+    evidence: fromCase ? [] : safetyEvidence.length > 0 ? safetyEvidence : detection.evidence,
     evidenceFromMemo,
     alternatives: detection.alternatives.filter((item) => item !== category) as CategoryType[],
     isOverridden: Boolean(override) && override !== detected,
@@ -684,7 +906,19 @@ export function analyzeReportInput(
     isCookingQuality,
     isInjury,
     isAllergy,
-    isHighRisk: category === '식중독 의심' || category === '안전사고',
+    isSpoiled,
+    isStorageInquiry,
+    isAllergyInquiry,
+    isAllergyLabelComplaint,
+    isGeneralInquiry,
+    isHealthEvent,
+    isHighRisk:
+      // 병원·응급실·의식 같은 말이 있으면 어떤 유형이든 중대로 봅니다.
+      mentionsMedical ||
+      (category === '식중독 의심' && !isAllergyInquiry && !isAllergyLabelComplaint) ||
+      category === '안전사고' ||
+      (category === '이물 혼입' && hazardousForeign.test(lower)) ||
+      isSpoiled,
     label: kb.label,
   }
 }
@@ -701,8 +935,17 @@ export function resolveCategory(form: Pick<ReportFormState, 'keyword' | 'memo'>,
   }
 }
 
-function resolveKnowledge(category: CategoryType, isCookingQuality: boolean, isInjury: boolean, isAllergy = false): CategoryKnowledge {
+function resolveKnowledge(
+  category: CategoryType,
+  isCookingQuality: boolean,
+  isInjury: boolean,
+  isAllergy = false,
+  isSpoiled = false,
+  isStorageInquiry = false,
+): CategoryKnowledge {
   const base = knowledge[category]
+  if (isSpoiled) return { ...base, ...spoiledQuality }
+  if (isStorageInquiry) return { ...base, ...storageInquiry }
   if (isCookingQuality) return { ...base, ...cookingQuality }
   if (isInjury) return { ...base, ...injurySafety }
   if (isAllergy) return { ...base, ...allergySymptom }
@@ -731,7 +974,15 @@ function tidyQuote(text: string) {
 
 function buildContext(form: ReportFormState, selectedCase: VocCase | null) {
   const analysis = analyzeReportInput(form, selectedCase)
-  const kb = resolveKnowledge(analysis.category, analysis.isCookingQuality, analysis.isInjury, analysis.isAllergy)
+  const kb = analysis.isHealthEvent
+    ? { ...knowledge[analysis.category], ...healthEvent }
+    : analysis.isAllergyInquiry
+    ? { ...knowledge[analysis.category], ...allergyInquiry }
+    : analysis.isAllergyLabelComplaint
+      ? { ...knowledge[analysis.category], ...allergyLabelComplaint }
+      : analysis.isGeneralInquiry
+      ? { ...knowledge[analysis.category], ...generalInquiry }
+      : resolveKnowledge(analysis.category, analysis.isCookingQuality, analysis.isInjury, analysis.isAllergy, analysis.isSpoiled, analysis.isStorageInquiry)
   const doneActions = doneActionOptions.filter((action) => form.onsiteActions.includes(action))
   const menuInput = cleanText(form.menuName)
   const hasMenu = menuInput.length > 0
@@ -977,7 +1228,7 @@ function buildCustomerMessage(context: ReportContext): string {
     doneParts.push('해당 음식은 회수해 두었습니다.')
   }
 
-  const paragraphs = [greeting, `${empathy} ${apology}`]
+  const paragraphs = [greeting, kb.noApology ? empathy : `${empathy} ${apology}`]
   if (context.analysis.isHighRisk) {
     paragraphs.push(kb.customerCheck)
     paragraphs.push([...doneParts, kb.customerPrevention].join(' '))

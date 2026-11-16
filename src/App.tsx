@@ -1,18 +1,19 @@
-import { useMemo, useState } from 'react'
+import { Suspense, lazy, useMemo, useState } from 'react'
 import { CalendarDays, FileText, LogOut, MessageSquareWarning, Utensils } from 'lucide-react'
 import { CategoryFilter } from './components/CategoryFilter'
 import { EntryCard } from './components/EntryCard'
 import { EntryModal } from './components/EntryModal'
-import { ReportGeneratorModal } from './components/ReportGeneratorModal'
-import { MenuLab } from './components/MenuLab'
-import { MealPlanner } from './components/MealPlanner'
 import { SearchBar } from './components/SearchBar'
 import { PageHero } from './components/PageHero'
+import { searchCases } from './utils/vocSearch'
 import {
   categories,
   getCaseById,
   vocCases,
 } from './data/vocCases'
+// CSS 순서는 그대로 유지합니다(탭을 나눠 불러와도 theme.css가 마지막에 적용되도록).
+import './report.css'
+import './mealPlan.css'
 import './shell.css'
 import './App.css'
 import './legibility.css'
@@ -28,34 +29,20 @@ function TrayMark() {
   )
 }
 
-function normalizeQuery(query: string): string {
-  return query.trim().toLowerCase()
+// 첫 화면(VOC 대응)에 필요 없는 탭과 보고서 창은 처음 열 때 불러옵니다.
+const ReportGeneratorModal = lazy(() => import('./components/ReportGeneratorModal').then((module) => ({ default: module.ReportGeneratorModal })))
+const MenuLab = lazy(() => import('./components/MenuLab').then((module) => ({ default: module.MenuLab })))
+const MealPlanner = lazy(() => import('./components/MealPlanner').then((module) => ({ default: module.MealPlanner })))
+
+function TabLoading() {
+  return (
+    <p className="tab-loading" role="status">
+      불러오는 중입니다.
+    </p>
+  )
 }
 
-function caseMatchesQuery(
-  entry: (typeof vocCases)[number],
-  query: string,
-): boolean {
-  if (!query) return true
-
-  const categoryLabel =
-    categories.find((c) => c.id === entry.category)?.label ?? ''
-
-  const haystack = [
-    entry.title,
-    categoryLabel,
-    entry.incident,
-    entry.customerScript,
-    entry.onsiteAction,
-    entry.rootCause,
-    entry.prevention,
-    entry.reportExample,
-  ]
-    .join(' ')
-    .toLowerCase()
-
-  return haystack.includes(query)
-}
+const PAGE_SIZE = 30
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'voc' | 'recommend' | 'plan'>('voc')
@@ -64,23 +51,26 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
   const quickKeywords = ['머리카락', '애벌레', '비닐', '오징어뼈']
-  const popularKeywords = ['음식이 짜요', '품절', '양이 적어요', '위생']
+  const popularKeywords = ['짜요', '품절', '양이 적어요', '위생']
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const handleQuickSearch = (keyword: string) => {
     setSearchQuery(keyword)
   }
 
   const selectedCase = selectedCaseId ? getCaseById(selectedCaseId) : null
 
-  const filteredCases = useMemo(() => {
-    const query = normalizeQuery(searchQuery)
+  const { cases: filteredCases, partial: isPartialMatch } = useMemo(
+    () => searchCases(vocCases, searchQuery, categoryFilter),
+    [categoryFilter, searchQuery],
+  )
 
-    return vocCases.filter((entry) => {
-      const matchesCategory =
-        categoryFilter === 'all' || entry.category === categoryFilter
-      const matchesSearch = caseMatchesQuery(entry, query)
-      return matchesCategory && matchesSearch
-    })
-  }, [categoryFilter, searchQuery])
+  // 검색 조건이 바뀌면 다시 처음 30건부터 보여 줍니다.
+  const [listKey, setListKey] = useState(`${categoryFilter}|${searchQuery}`)
+  if (listKey !== `${categoryFilter}|${searchQuery}`) {
+    setListKey(`${categoryFilter}|${searchQuery}`)
+    setVisibleCount(PAGE_SIZE)
+  }
+  const visibleCases = filteredCases.slice(0, visibleCount)
 
   const activeCategoryLabel =
     categoryFilter === 'all'
@@ -126,7 +116,7 @@ export default function App() {
     <div className="app">
       <aside className="side-nav">
         {brand}
-        <nav aria-label="주요 메뉴">
+        <nav aria-label="주요 메뉴 (사이드바)">
           <ul className="nav-list">
             {navItems.map(({ id, label, icon: Icon }) => (
               <li key={id}>
@@ -231,7 +221,7 @@ export default function App() {
 
           <div className="result-summary" aria-live="polite">
             <p>{`검색 결과 ${filteredCases.length}건`}</p>
-            <span>{`${activeCategoryLabel}${searchQuery ? ` · "${searchQuery}" 검색` : ''}`}</span>
+            <span>{`${activeCategoryLabel}${searchQuery ? ` · "${searchQuery}" 검색` : ''}${isPartialMatch ? ' · 일부 단어만 일치' : ''}`}</span>
           </div>
 
           {filteredCases.length === 0 ? (
@@ -250,7 +240,7 @@ export default function App() {
             </div>
           ) : (
             <div className="entry-grid">
-              {filteredCases.map((entry) => (
+              {visibleCases.map((entry) => (
                 <EntryCard
                   key={entry.id}
                   entry={entry}
@@ -259,11 +249,16 @@ export default function App() {
               ))}
             </div>
           )}
+          {filteredCases.length > visibleCases.length && (
+            <div className="entry-more">
+              <button type="button" className="meal-plan__button" onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>
+                더 보기 ({visibleCases.length}/{filteredCases.length}건)
+              </button>
+            </div>
+          )}
         </>
-        ) : activeTab === 'recommend' ? (
-          <MenuLab />
         ) : (
-          <MealPlanner />
+          <Suspense fallback={<TabLoading />}>{activeTab === 'recommend' ? <MenuLab /> : <MealPlanner />}</Suspense>
         )}
       </main>
 
@@ -275,10 +270,18 @@ export default function App() {
       )}
 
       {isReportModalOpen && (
-        <ReportGeneratorModal onClose={() => setIsReportModalOpen(false)} />
+        <Suspense
+          fallback={
+            <div className="modal-overlay" role="presentation">
+              <TabLoading />
+            </div>
+          }
+        >
+          <ReportGeneratorModal onClose={() => setIsReportModalOpen(false)} />
+        </Suspense>
       )}
 
-      <nav className="tab-bar" aria-label="주요 메뉴">
+      <nav className="tab-bar" aria-label="주요 메뉴 (하단 탭)">
         {navItems.map(({ id, label, icon: Icon }) => (
           <button
             key={id}

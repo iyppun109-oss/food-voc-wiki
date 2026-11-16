@@ -113,7 +113,7 @@ export function checkReportQuality(
       if (!completionMarker.test(sentence)) continue
       for (const [action, pattern] of Object.entries(actionWords) as Array<[DoneAction, RegExp]>) {
         if (!checked.has(action) && pattern.test(sentence)) {
-          issues.push({ level: 'error', target, message: `${label}: 체크하지 않은 '${action}'이(가) 완료된 것처럼 쓰였습니다. ("${sentence}")` })
+          issues.push({ level: 'error', target, message: `${label}: 체크하지 않은 '${action}' 조치가 완료된 것처럼 쓰였습니다. ("${sentence}")` })
         }
       }
     }
@@ -156,6 +156,8 @@ export function checkReportQuality(
       for (const [category, pattern] of Object.entries(categorySignature)) {
         if (category === analysis.category) continue
         if (analysis.isInjury && category === '안전사고') continue
+        // 상한 음식은 식중독 위험이 있어 고객 몸 상태를 묻는 문장이 들어가는 것이 맞습니다.
+        if (analysis.isSpoiled && category === '식중독 의심') continue
         if (pattern.test(ownText)) {
           issues.push({ level: 'error', target, message: `${label}: '${analysis.category}' 건인데 '${category}' 상황 설명이 섞였습니다.` })
         }
@@ -227,7 +229,7 @@ export function checkInputConsistency(form: ReportFormState, analysis: ReportAna
   ]
   for (const [pattern, action] of memoActionHints) {
     if (pattern.test(form.memo) && !form.onsiteActions.includes(action as never)) {
-      issues.push({ level: 'info', target: 'input', message: `메모에 '${action}' 관련 내용이 있습니다. 실제로 했다면 '완료한 조치'에서 '${action}'을(를) 골라 주세요.` })
+      issues.push({ level: 'info', target: 'input', message: `메모에 '${action}' 관련 내용이 있습니다. 실제로 했다면 '완료한 조치'에서 '${action}' 항목을 골라 주세요.` })
     }
   }
   if (form.onsiteActions.includes('메뉴 회수') && form.onsiteActions.includes('음식 교체') === false && analysis.category === '품절') {

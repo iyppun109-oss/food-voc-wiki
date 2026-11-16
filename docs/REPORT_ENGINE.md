@@ -25,7 +25,7 @@
 
 | 파일 | 역할 |
 |---|---|
-| `src/data/reportSentenceTemplates.ts` | 유형 판정 규칙(`REPORT_TEMPLATE_ALIASES`). 배열 순서가 우선순위이고, 고위험 유형을 먼저 봅니다. `detectReportCategoryDetailed`가 근거 단어와 함께 걸린 다른 유형도 돌려줍니다. |
+| `src/data/reportCategoryRules.ts` | 유형 판정 규칙(`REPORT_TEMPLATE_ALIASES`). 배열 순서가 우선순위이고, 고위험 유형을 먼저 봅니다. `detectReportCategoryDetailed`가 근거 단어와 함께 걸린 다른 유형도 돌려줍니다. |
 | `src/utils/reportGenerator.ts` | 유형별 지식(`knowledge`)과 세 문서 생성 |
 | `src/utils/reportQuality.ts` | 생성 결과 점검. 화면의 '작성 점검'과 자동 점검이 같은 규칙을 씁니다. |
 | `src/utils/koreanJosa.ts` | 조사(을/를, 이/가 …)와 목록 잇기('A와 B', 'A, B 및 C') |
@@ -46,7 +46,7 @@
 
 새 유형은 다음 순서로 추가합니다.
 
-1. `reportSentenceTemplates.ts`의 `ReportCategory`와 `REPORT_TEMPLATE_ALIASES`에 넣습니다.
+1. `reportCategoryRules.ts`의 `ReportCategory`와 `REPORT_TEMPLATE_ALIASES`에 넣습니다.
 2. `reportGenerator.ts`의 `knowledge`와 `reportCategoryOptions`에 넣습니다.
 3. `reportQuality.ts`의 `categorySignature`에 넣습니다.
 4. `scripts/checkReports.ts`의 `keywordFor`와 판정 사례에 넣습니다.
@@ -61,12 +61,21 @@
 | 고객사 보고 | 문단 3개 | ■ 항목별 | ■ 항목별 + 원인 미단정 문장 |
 | 고객용 | 재발 방지 문단 생략 | 전체 | 전체 |
 
-고위험 유형(식중독 의심·안전사고)은 분량과 상관없이 확인 항목을 모두 넣습니다.
+고위험 건은 분량과 상관없이 확인 항목을 모두 넣고 '중대' 기준으로 씁니다.
+
+- 식중독 의심·안전사고
+- 이물 혼입 중 유리·금속·철사·스테이플러 심·볼트·칼날처럼 다칠 수 있는 이물(`hazardousForeign`)
+- 품질 중 상했거나 유통기한이 지난 음식(`spoiledFood`). '유통기한 확인 요청'처럼 문의만 한 경우는 제외합니다.
+  이 경우 '변질·유통기한 경과 의심' 갈래로 바꿔, 제품 회수·유통기한·제조번호·동일 입고분·보관 온도 확인과 고객 몸 상태 확인을 씁니다.
 
 ## 자동 점검
 
 ```bash
-npm run report:check
+npm run report:check   # 보고서
+npm run search:check   # VOC 검색 (scripts/checkSearch.ts)
+npm run menu:check     # 메뉴 추천 데이터·결과 (scripts/checkMenus.ts)
+npm run plan:check     # 식단표 목표 달성률·나트륨 (scripts/checkMealPlan.ts)
+npm run check          # 네 가지 모두
 ```
 
 다음 네 가지를 검사합니다.

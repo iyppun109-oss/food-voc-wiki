@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { type FormEvent } from 'react'
 import { AlertTriangle, Check, CheckCircle2, Copy, Info, RotateCcw, Wand2 } from 'lucide-react'
 import { vocCases, type VocCase } from '../data/vocCases'
@@ -18,7 +18,8 @@ import {
 } from '../utils/reportGenerator'
 import { checkInputConsistency, checkReportQuality, type QualityIssue } from '../utils/reportQuality'
 import { applyRecommendedExpressions, checkForbiddenExpressions } from '../utils/reportSafetyChecker'
-import '../report.css'
+import { useModalFocus } from '../utils/useModalFocus'
+import { attachJosa } from '../utils/koreanJosa'
 
 interface ReportGeneratorModalProps {
   onClose: () => void
@@ -150,24 +151,12 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
     setIsDateTimePickerOpen(false)
   }
 
-  useEffect(() => {
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    closeButtonRef.current?.focus()
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      if (isDateTimePickerOpen) {
-        setIsDateTimePickerOpen(false)
-        return
-      }
-      onClose()
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.body.style.overflow = previousOverflow
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [isDateTimePickerOpen, onClose])
+  const dialogRef = useRef<HTMLDivElement>(null)
+  useModalFocus(dialogRef, closeButtonRef, onClose, () => {
+    if (!isDateTimePickerOpen) return false
+    setIsDateTimePickerOpen(false)
+    return true
+  })
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -218,7 +207,7 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
         if (event.target === event.currentTarget) onClose()
       }}
     >
-      <div className="modal report-modal" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
+      <div ref={dialogRef} className="modal report-modal" role="dialog" aria-modal="true" aria-labelledby="report-modal-title">
         <header className="modal__header">
           <div>
             <h2 id="report-modal-title" className="modal__title">
@@ -269,6 +258,11 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
                           ? '고른 비슷한 사례의 유형을 따랐습니다.'
                           : '판정 단어가 없어 기타로 분류했습니다.'}
                   </p>
+                  {analysis.isHighRisk && (
+                    <p className="report-detect__caution">
+                      긴급 건으로 보고 중대 기준으로 작성합니다. 근거가 고객 말씀과 다르면 유형을 바꿔 주세요.
+                    </p>
+                  )}
                   <label className="report-detect__override">
                     <span>유형 바꾸기</span>
                     <select
@@ -532,7 +526,7 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
             <div className="report-submit">
               {showMissing && missing.length > 0 && (
                 <p className="report-submit__missing" role="alert">
-                  {missing.map((field) => field.label).join(', ')}을(를) 입력해 주세요.
+                  {attachJosa(missing.map((field) => field.label).join(', '), '을/를')} 입력해 주세요.
                 </p>
               )}
               <button type="submit" className="meal-plan__primary report-submit__button">
@@ -602,6 +596,9 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
                     </button>
                   )}
                 </div>
+                <p className="report-panel__send-hint">
+                  자동으로 만든 초안입니다. 보내기 전에 사실과 다른 내용이 없는지 확인해 주세요.
+                </p>
                 {copyError === activeTab && (
                   <p className="report-copy-error" role="alert">
                     복사에 실패했습니다. 내용을 직접 선택해 복사해 주세요.

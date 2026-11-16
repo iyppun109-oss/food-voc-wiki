@@ -1203,3 +1203,42 @@ html:root {
     margin-right: 8px;
   }
 }
+
+/* VOC 목록 더 보기 */
+.entry-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.entry-more .meal-plan__button {
+  min-height: 44px;
+  padding: 0 24px;
+}
+
+/* 사례 상세: 기본 응대 문구와 복사 */
+.modal__script-fallback {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--surface);
+}
+
+.modal__script-fallback-label {
+  margin-bottom: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent-ink);
+}
+
+.modal__copy {
+  margin-top: 10px;
+}
+
+/* 탭을 처음 열 때 잠깐 보이는 안내 */
+.tab-loading {
+  padding: 48px 0;
+  text-align: center;
+  color: var(--muted);
+}

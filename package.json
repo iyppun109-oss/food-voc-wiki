@@ -8,7 +8,11 @@
     "build": "tsc -b && vite build --config vite.config.js --configLoader native",
     "lint": "eslint .",
     "preview": "vite preview",
-    "report:check": "esbuild scripts/checkReports.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/report-check.mjs --log-level=warning && node node_modules/.cache/report-check.mjs"
+    "report:check": "esbuild scripts/checkReports.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/report-check.mjs --log-level=warning && node node_modules/.cache/report-check.mjs",
+    "search:check": "esbuild scripts/checkSearch.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/search-check.mjs --log-level=warning && node node_modules/.cache/search-check.mjs",
+    "check": "npm run report:check && npm run search:check && npm run menu:check && npm run plan:check",
+    "menu:check": "esbuild scripts/checkMenus.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/menu-check.mjs --log-level=warning && node node_modules/.cache/menu-check.mjs",
+    "plan:check": "esbuild scripts/checkMealPlan.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/plan-check.mjs --log-level=warning && node node_modules/.cache/plan-check.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.73.0",

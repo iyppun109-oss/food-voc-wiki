@@ -524,3 +524,17 @@
   font-size: 0.8125rem;
   color: var(--amber-ink);
 }
+
+/* 긴급 판정 안내와 발송 전 확인 안내 */
+.report-detect__caution {
+  grid-column: 1 / -1;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--negative);
+}
+
+.report-panel__send-hint {
+  margin-top: 8px;
+  font-size: 0.8125rem;
+  color: var(--text-2);
+}
