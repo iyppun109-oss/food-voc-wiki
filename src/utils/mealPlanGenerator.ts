@@ -456,7 +456,8 @@ function scoreCandidate(candidate: PlanMenuItem, ctx: ScoreContext) {
   if (!itemNutrition(candidate, options.portions) && sameDay.some((item) => !itemNutrition(item, options.portions))) score -= 12
   // 나트륨 자료가 없는 메뉴는 그날 나트륨을 판정할 수 없게 하므로 뒤로 미루고, 하루 1개까지만 둡니다.
   if (itemNutrition(candidate, options.portions)?.sodiumMg === null) {
-    score -= sameDay.some((item) => itemNutrition(item, options.portions)?.sodiumMg === null) ? 12 : 6
+    // '염도'를 줄이려는 경우에는 나트륨을 확인할 수 없는 메뉴를 더 뒤로 미룹니다.
+    score -= sameDay.some((item) => itemNutrition(item, options.portions)?.sodiumMg === null) ? 14 : options.avoid.includes('염도') ? 10 : 6
   }
 
   // 반복: 기간 전체에서 사용 횟수와 가장 가까운 사용일까지의 거리

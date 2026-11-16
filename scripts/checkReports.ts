@@ -117,16 +117,18 @@ const detectionCases: Array<[string, string, string?]> = [
   ['머리끈이 나왔어요', '이물 혼입'],
   ['음식이 시큼해요', '품질'],
   ['유리문 손잡이가 끈적해요', '위생 불만'],
+  ['화장실 벽에 곰팡이가 있어요', '위생 불만'],
+  ['빵에 곰팡이가 있는지 확인해 주세요', '품질'],
 ]
 
 // 겪은 일을 말하면 '확인해 주세요'로 끝나도 변질 제보(중대)
-for (const keyword of ['유통기한 지난 우유 마셨는데 확인 부탁', '곰팡이 핀 빵 확인해 주세요', '상한 것 같은데 확인 요청']) {
+for (const keyword of ['유통기한 지난 우유 마셨는데 확인 부탁', '곰팡이 핀 빵 확인해 주세요', '상한 것 같은데 확인 요청', '어제 먹은 김밥이 쉰 것 같은데 알려 주세요']) {
   const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
   if (!analysis.isSpoiled || !analysis.isHighRisk || analysis.isStorageInquiry) fail(`변질 제보가 문의로 낮아짐: "${keyword}"`)
 }
 
 // 문의는 불만·변질로 단정하지 않음
-for (const keyword of ['유통기한 확인 요청드려요', '우유가 상했는지 확인해 주세요']) {
+for (const keyword of ['유통기한 확인 요청드려요', '우유가 상했는지 확인해 주세요', '빵에 곰팡이가 있는지 확인해 주세요']) {
   const form = { ...base, keyword, menuName: '우유' }
   const analysis = analyzeReportInput(form, null)
   if (!analysis.isStorageInquiry) fail(`문의 갈래로 판정되지 않음: "${keyword}"`)

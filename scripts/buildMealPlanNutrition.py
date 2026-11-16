@@ -423,6 +423,11 @@ export function nutritionOf(name: string): MenuNutrition | null {
     with open('src/data/mealPlanNutrition.ts', 'w', encoding='utf-8', newline='\n') as handle:
         handle.write(out)
     print('matched', len(entries), 'of', len(MAPPING), 'mapped menus')
+    # 100g당 1,500mg을 넘는 값은 장아찌·젓갈 수준이라 한 번 더 확인합니다(자동으로 바꾸지 않음).
+    for line in entries:
+        match = re.search(r'^  "([^"]+)".*sodium100: (\d+)', line)
+        if match and int(match.group(2)) > 1500:
+            print('CHECK SODIUM', match.group(1), match.group(2), 'mg/100g')
     for menu, names in missing:
         print('NOT FOUND', menu, names)
 
