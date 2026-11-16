@@ -690,6 +690,11 @@ const hazardousForeign = /(유리(?!\s?(컵|창|문|병))|철사|쇳조각|금�
 const spoiledFood = /(유통기한|소비기한|기한(이)?\s?지난|곰팡|상했|상한|변질|쉰내|쉬었)/
 /** 확인을 부탁하는 문의는 실제 변질 제보가 아니므로 중대로 올리지 않습니다('유통기한 확인 요청'). */
 const inquiryOnly = /(요청|문의|궁금|알려\s?주|확인\s?(부탁|해\s?주))/
+/** 실제로 겪은 일을 말하는 표현. '상했는지 확인해 주세요'처럼 묻는 말(~는지·~인지) 안의 단어는 빼고 봅니다. */
+const observedFact = /(마셨|먹었|먹고|먹다|드셨|드시고|핀|피었|폈|났|지난|지났|상한|상했|곰팡|시큼|쉰|쉬었|변질|냄새)/
+function statesObservedFact(text: string) {
+  return observedFact.test(text.replace(/\S*(는지|은지|인지|던지)/g, ' '))
+}
 
 /**
  * 유형 판정은 사용자가 직접 입력한 키워드와 메모만 씁니다.
@@ -725,8 +730,10 @@ export function analyzeReportInput(
       QUALITY_COOKING_STATUS_KEYWORDS.some((keyword) => noSpace.includes(keyword.replace(/\s+/g, ''))))
   const isInjury = category === '안전사고' && injuryKeywords.test(lower) && !dentalKeywords.test(lower)
   const isAllergy = category === '식중독 의심' && allergyKeywords.test(lower)
-  const isSpoiled = category === '품질' && spoiledFood.test(lower) && !inquiryOnly.test(lower)
-  const isStorageInquiry = category === '품질' && spoiledFood.test(lower) && inquiryOnly.test(lower)
+  // '확인해 주세요'로 끝나도 '곰팡이 핀', '유통기한 지난 우유 마셨는데'처럼 겪은 일을 말하면 변질 제보로 봅니다.
+  const isInquiry = inquiryOnly.test(lower) && !statesObservedFact(lower)
+  const isSpoiled = category === '품질' && spoiledFood.test(lower) && !isInquiry
+  const isStorageInquiry = category === '품질' && spoiledFood.test(lower) && isInquiry
   const kb = resolveKnowledge(category, isCookingQuality, isInjury, isAllergy, isSpoiled, isStorageInquiry)
 
   return {

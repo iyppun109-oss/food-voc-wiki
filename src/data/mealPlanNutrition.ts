@@ -179,7 +179,7 @@ export const nutritionByName: Record<string, MenuNutrition> = {
   "도토리묵무침": { kcal100: 56.0, protein100: 0.6, sodium100: 179, sodiumBasis: "재료량 기반", saltAtTable: false, dbServing: 100, dbName: "도토리묵무침", basis: "산업체급식" },
   "청포묵무침": { kcal100: 43.0, protein100: 1.3, sodium100: 282, sodiumBasis: "재료량 기반", saltAtTable: false, dbServing: 150, dbName: "청포묵무침", basis: "산업체급식" },
   "미역초무침": { kcal100: 31.0, protein100: 1.48, sodium100: 452, sodiumBasis: "분석 함량", saltAtTable: false, dbServing: 120, dbName: "미역초무침", basis: "산업체급식" },
-  "다시마무침": { kcal100: 60.0, protein100: 3.1, sodium100: 2759, sodiumBasis: "분석 함량", saltAtTable: false, dbServing: 64, dbName: "다시마무침", basis: "산업체급식" },
+  "다시마무침": { kcal100: 60.0, protein100: 3.1, sodium100: 501, sodiumBasis: "재료량 기반", saltAtTable: false, dbServing: 64, dbName: "다시마무침", basis: "산업체급식" },
   "무말랭이무침": { kcal100: 88.0, protein100: 3.3, sodium100: 450, sodiumBasis: "분석 함량", saltAtTable: false, dbServing: 85, dbName: "무말랭이무침", basis: "산업체급식" },
   "고사리들깨나물": { kcal100: 56.0, protein100: 3.7, sodium100: 1301, sodiumBasis: "재료량 기반", saltAtTable: false, dbServing: 82, dbName: "고사리나물", basis: "산업체급식" },
   "치커리무침": { kcal100: 22.0, protein100: 0.72, sodium100: 160, sodiumBasis: "재료량 기반", saltAtTable: false, dbServing: 180, dbName: "치커리겉절이", basis: "산업체급식" },

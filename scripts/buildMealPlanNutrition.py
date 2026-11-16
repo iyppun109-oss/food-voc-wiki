@@ -23,6 +23,9 @@ SODIUM_RECIPE_FLOOR = 50
 SODIUM_RECIPE_FLOOR_SEASONED = 150
 SEASONED = re.compile(r'(볶음(?!밥)|조림|구이|불고기|강정)')
 # 손님이 소금·후추로 직접 간을 하는 국물 메뉴: DB 값에 소금이 빠져 있습니다.
+# 분석 값이 같은 음식의 급식 재료량 값보다 5배 넘게 높아, 염장 재료로 만든 다른 조리법을 분석한 것으로 보이는 음식.
+# 단체급식 반찬으로 보기 어려워 급식 재료량 값을 씁니다(다시마무침: 분석 2,759mg, 급식 501~518mg / 100g).
+SODIUM_PREFER_RECIPE = {'다시마무침'}
 SALT_AT_TABLE = {'설렁탕', '소고기곰탕', '도가니탕', '사골우거지탕'}
 # 밥류는 원래 나트륨이 거의 없어 위 기준을 적용하지 않습니다.
 LOW_SODIUM_NATURAL = re.compile(r'(쌀밥|현미밥|흑미밥|잡곡밥|콩밥|찹쌀밥|보리밥)')
@@ -322,7 +325,7 @@ def main():
 
     # 나트륨 출처 정하기: 분석 값 → 재료량 기반 값(너무 낮으면 자료 없음)
     for name, part in best.items():
-        if name in analyzed_sodium:
+        if name in analyzed_sodium and name not in SODIUM_PREFER_RECIPE:
             part['sodium'] = analyzed_sodium[name] * part['amount'] / 100
             part['sodiumBasis'] = '분석'
         elif part['sodium100'] is not None and (

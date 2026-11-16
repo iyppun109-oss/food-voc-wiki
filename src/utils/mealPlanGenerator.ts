@@ -91,7 +91,7 @@ export const defaultPortions: Record<MealSlot, number> = {
 /** 사업장 유형별 1인 분량 기본값. 생산직은 활동량을 고려해 밥·주찬·일품을 늘립니다. */
 export const sitePortions: Record<Exclude<SiteType, '직접 설정'>, Record<MealSlot, number>> = {
   사무직: defaultPortions,
-  생산직: { rice: 300, soup: 250, stew: 400, main: 150, side: 80, veg: 60, kimchi: 40, oneDish: 650 },
+  생산직: { rice: 330, soup: 250, stew: 400, main: 170, side: 80, veg: 60, kimchi: 40, oneDish: 650 },
 }
 
 export const portionLabels: Record<MealSlot, string> = {
@@ -431,13 +431,15 @@ function nutritionPenalty(candidate: PlanMenuItem, ctx: ScoreContext) {
   }
 
   const { kcalMin, kcalMax, proteinMin } = options.target
-  if (kcal > kcalMax) penalty += Math.min(14, (kcal - kcalMax) / 20)
-  if (kcal < kcalMin) penalty += Math.min(14, (kcalMin - kcal) / 20)
+  if (kcal > kcalMax) penalty += Math.min(20, (kcal - kcalMax) / 12)
+  if (kcal < kcalMin) penalty += Math.min(20, (kcalMin - kcal) / 12)
   if (proteinG < proteinMin) penalty += Math.min(10, (proteinMin - proteinG) / 1.5)
   // 나트륨 상한을 넘는 조합은 낮추고, '염도'를 피할 요소로 고르면 더 크게 낮춥니다.
   const { sodiumMax } = options.target
   if (sodiumMg > sodiumMax) {
-    penalty += options.avoid.includes('염도') ? Math.min(60, (sodiumMg - sodiumMax) / 20) : Math.min(30, (sodiumMg - sodiumMax) / 40)
+    penalty += options.avoid.includes('염도') ? Math.min(60, (sodiumMg - sodiumMax) / 20) : Math.min(50, (sodiumMg - sodiumMax) / 20)
+    // 상한의 1.5배를 넘는 한 끼는 설정과 상관없이 거의 고르지 않습니다.
+    if (sodiumMg > sodiumMax * 1.5) penalty += (sodiumMg - sodiumMax * 1.5) / 10
   }
   return penalty
 }
