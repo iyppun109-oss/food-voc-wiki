@@ -146,16 +146,41 @@ for (const keyword of [
   '먹고 나서 입술이 부었어요',
   '먹고 나서 가려워요',
   '알레르기 표시가 없어서 먹었는데 입술이 부었어요',
+  '새우튀김 먹고 숨쉬기 힘들어요',
+  '점심 먹고 얼굴이 빨개졌어요',
 ]) {
   const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
   if (analysis.category !== '식중독 의심' || !analysis.isAllergy || !analysis.isHighRisk || analysis.isAllergyInquiry || analysis.isAllergyLabelComplaint) {
     fail(`알레르기 반응이 중대로 판정되지 않음: "${keyword}" → ${analysis.label}`)
   }
 }
+// 먹은 뒤 이상하다는 말은 알레르기가 아니어도 중대
+if (!analyzeReportInput({ keyword: '계란 들어간 줄 몰랐는데 먹고 나서 이상해요', memo: '', categoryOverride: '' }, null).isHighRisk) fail('먹고 나서 이상해요 → 중대 아님')
+
+// 거짓 양성: 음식·증상과 무관한 붓다·가리다·반응·있었·숨·차갑다는 중대로 올리지 않음
+for (const [keyword, notCategory] of [
+  ['국을 부어 주는데 양이 너무 적어요', '식중독 의심'],
+  ['편식이라 가려 먹는데 반찬이 단조로워요', '식중독 의심'],
+  ['직원 반응이 너무 차가워요', '품질'],
+  ['숨은 메뉴가 있나요', '식중독 의심'],
+  ['눈이 부어서 왔는데 조명이 너무 밝아요', '식중독 의심'],
+  ['알레르기 표시가 있었는데 글씨가 작아요', ''],
+  ['알레르기 표시가 잘못되어 있었어요', ''],
+  ['알레르기 정보 메뉴판에 추가해 주세요', ''],
+  ['라면이 불었어요', '식중독 의심'],
+] as const) {
+  const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
+  if (notCategory && analysis.category === notCategory) fail(`거짓 양성: "${keyword}" → ${analysis.category}`)
+  if (analysis.isHighRisk) fail(`거짓 양성(중대): "${keyword}" → ${analysis.label}`)
+}
+if (analyzeReportInput({ keyword: '직원 반응이 너무 차가워요', memo: '', categoryOverride: '' }, null).category !== '직원 응대') fail('"직원 반응이 차가워요" → 직원 응대 아님')
+
 // 증상이 없으면 증상을 쓰지 않음
 for (const [keyword, flag] of [
   ['알레르기 표시가 없어요', 'isAllergyLabelComplaint'],
   ['알레르기 때문에 못 먹었어요', 'isAllergyLabelComplaint'],
+  ['알레르기 표시가 있었는데 글씨가 작아요', 'isAllergyLabelComplaint'],
+  ['알레르기 정보 메뉴판에 추가해 주세요', 'isAllergyInquiry'],
   ['땅콩 들어갔는지 궁금해요', 'isAllergyInquiry'],
   ['새우 알레르기 있는데 오늘 국에 들어갔나요?', 'isAllergyInquiry'],
 ] as const) {
