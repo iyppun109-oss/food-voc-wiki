@@ -119,7 +119,24 @@ const detectionCases: Array<[string, string, string?]> = [
   ['유리문 손잡이가 끈적해요', '위생 불만'],
   ['화장실 벽에 곰팡이가 있어요', '위생 불만'],
   ['빵에 곰팡이가 있는지 확인해 주세요', '품질'],
+  ['식판에 곰팡이', '위생 불만'],
+  ['컵에 곰팡이가 있어요', '위생 불만'],
+  ['수건에서 쉰내가 나요', '위생 불만'],
+  ['쉰 김치가 나왔어요', '품질'],
+  ['직원이 쉰 목소리로 불친절하게 대답함', '직원 응대'],
 ]
+
+// 묻기만 한 경우는 증상·불편·사과를 쓰지 않음
+for (const [keyword, flag] of [['어제 먹은 거 알레르기 성분 문의', 'isAllergyInquiry'], ['어제 먹은 반찬 원산지 문의', 'isGeneralInquiry']] as const) {
+  const form = { ...base, keyword }
+  const analysis = analyzeReportInput(form, null)
+  if (!analysis[flag]) fail(`문의 갈래로 판정되지 않음: "${keyword}"`)
+  if (analysis.isHighRisk) fail(`문의가 중대로 판정됨: "${keyword}"`)
+  const report = generateReportContents(form, null)
+  const all = [report.customerMessage, report.internalReport, report.clientReport].join('\n')
+  if (/증상이 나타나|증상이 있다는|번거로우셨|불편을 드려/.test(all)) fail(`문의인데 증상·불편 문구가 들어감: "${keyword}"`)
+}
+if (!analyzeReportInput({ keyword: '알레르기 성분 문의했는데 두드러기가 났어요', memo: '', categoryOverride: '' }, null).isHighRisk) fail('알레르기 증상이 있는데 문의로 낮아짐')
 
 // 겪은 일을 말하면 '확인해 주세요'로 끝나도 변질 제보(중대)
 for (const keyword of ['유통기한 지난 우유 마셨는데 확인 부탁', '곰팡이 핀 빵 확인해 주세요', '상한 것 같은데 확인 요청', '어제 먹은 김밥이 쉰 것 같은데 알려 주세요']) {
