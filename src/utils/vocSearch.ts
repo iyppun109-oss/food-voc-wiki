@@ -17,7 +17,7 @@ export function squash(text: string): string {
 const searchSynonyms: Array<{ pattern: RegExp; terms: string[]; category?: string }> = [
   { pattern: /짜(?!장|글|파게티|증|임)|짠|짰|짭/, terms: ['염도', '짜다', '짜요', '짜서', '짜게', '짠맛', '짬'], category: '염도' },
   { pattern: /싱겁|싱거/, terms: ['싱겁', '싱거', '염도'], category: '염도' },
-  { pattern: /식었|식어|미지근/, terms: ['식었', '식어', '미지근', '차갑'] },
+  { pattern: /식었|식어|미지근|차가/, terms: ['식었', '식어', '미지근', '차갑'], category: '품질' },
   { pattern: /알러지|알레르기/, terms: ['알레르기', '알러지'] },
   { pattern: /양부족|양이|적어|적게|모자/, terms: ['양 부족', '양이 적', '양이 부족', '적게', '제공량'], category: '양 부족' },
   { pattern: /품절|소진|떨어졌|떨어져|떨어짐|없어서/, terms: ['품절', '소진', '조기 마감'], category: '품절' },
@@ -29,7 +29,8 @@ const searchSynonyms: Array<{ pattern: RegExp; terms: string[]; category?: strin
   { pattern: /비닐|플라스틱|랩/, terms: ['비닐', '플라스틱'], category: '비닐/플라스틱' },
   { pattern: /뼈|가시/, terms: ['뼈', '가시'], category: '뼈/가시' },
   { pattern: /이물|철사|유리|돌멩이|쇳조각/, terms: ['이물'], category: '이물 혼입' },
-  { pattern: /다쳤|다침|화상|데었|미끄러|넘어|치아|이빨/, terms: ['안전', '다쳤', '화상', '치아'], category: '안전사고' },
+  { pattern: /다쳤|다침|화상|데었|미끄러|넘어|치아|이빨/, terms: ['안전사고', '다쳤', '화상', '치아'], category: '안전사고' },
+  { pattern: /설익|덜익|안익|생쌀/, terms: ['설익', '덜익', '덜 익', '생쌀'], category: '품질' },
 ]
 
 /** 검색에서 버릴 군말 */
@@ -40,12 +41,14 @@ const fillerWords = new Set([
   '해요', '했어요', '했는데', '같아요', '같은', '같은데', '것', '게', '거', '요',
 ])
 
+/** 조사를 떼고 한 글자만 남아도 되는 낱말('밥이' → '밥'). 그 밖에는 한 글자가 되면 떼지 않습니다('품질' ≠ '품'). */
+const oneSyllableNouns = new Set(['밥', '국', '뼈', '털', '빵', '떡', '묵', '김', '죽', '면', '컵', '물', '돌', '줄', '양', '간', '맛'])
+
 /** 단어 끝 조사·어미를 뗍니다('머리카락이' → '머리카락', '불친절해요' → '불친절', '이물질' → '이물'). */
 export function stem(word: string) {
-  const base = word.replace(/질$/, '')
-  // 조사만 뗀 경우는 한 글자 명사도 살립니다('밥이' → '밥', '국에' → '국').
+  const base = word.replace(/^이물질/, '이물')
   const noParticle = base.replace(/(에서|에게|에도|이랑|하고|까지|부터|으로|에|의|로|이|가|은|는|을|를|만)$/, '')
-  if (noParticle !== base && noParticle.length >= 1) return noParticle.replace(/질$/, '')
+  if (noParticle !== base && (noParticle.length >= 2 || oneSyllableNouns.has(noParticle))) return noParticle
   // '도'는 '온도'처럼 낱말 끝 글자일 수 있어 세 글자 이상일 때만 뗍니다.
   if (base.length >= 3 && base.endsWith('도')) return base.slice(0, -1)
   const stripped = base.replace(/(이에요|예요|였어요|었어요|았어요|했어요|해요|어요|아요|네요|요|함|임|음)$/, '')
@@ -55,6 +58,8 @@ export function stem(word: string) {
 export interface QueryGroup {
   /** 원래 단어 */
   word: string
+  /** 같은 뜻 말을 붙이기 전의 단어(무게 계산용) */
+  base: string[]
   /** 이 중 하나라도 있으면 그 단어가 맞은 것으로 봅니다. */
   terms: string[]
   /** 이 단어가 가리키는 사례 유형(있으면 그 유형 사례에 가산) */
@@ -67,6 +72,7 @@ const phraseRules: Array<[RegExp, string]> = [
   [/속\s?(이)?\s?(안\s?좋|메스꺼|울렁)\S*/g, '배탈'],
   [/다\s?떨어\S*/g, '품절'],
   [/양\s?(이)?\s?(적|부족|모자)\S*/g, '양부족'],
+  [/(^|\s)(이가|이빨이?)\s?(깨|부러|빠|아프|아파)\S*/g, ' 치아 '],
 ]
 
 export function queryGroups(query: string): QueryGroup[] {
@@ -86,7 +92,7 @@ export function queryGroups(query: string): QueryGroup[] {
           category ??= synonym.category
         }
       }
-      return { word, terms: [...terms].filter(Boolean), category }
+      return { word, base: [...new Set([word, stemmed])], terms: [...terms].filter(Boolean), category }
     })
 }
 
@@ -124,12 +130,17 @@ export function searchCases(cases: VocCase[], query: string, categoryFilter = 'a
   const groups = queryGroups(query)
   if (groups.length === 0) return { cases: scoped.map((item) => item.entry), partial: false }
 
-  // 드문 단어일수록 무게를 크게: 전체 사례 중 그 단어가 나오는 비율의 역수(로그)
+  // 드문 단어일수록 무게를 크게: 전체 사례 중 그 단어(같은 뜻 말 제외)가 나오는 비율의 역수(로그)를 제곱합니다.
   const total = indexed.length
   const weights = groups.map((group) => {
-    const df = indexed.filter((item) => group.terms.some((term) => item.body.includes(term))).length
-    return Math.log((total + 1) / (df + 1)) + 1
+    const df = indexed.filter((item) => group.base.some((term) => item.body.includes(term))).length
+    const idf = Math.log((total + 1) / (df + 1)) + 1
+    // 불만 유형을 가리키는 말('벌레', '미지근')은 음식 이름('김치', '국물')보다 중요하게 봅니다.
+    return idf * idf * (group.category ? 2 : 1)
   })
+  // 제목 가산은 가장 중요한 단어에만 줍니다('김치에서 벌레' → '김치'가 아니라 '벌레'가 제목에 있는 사례).
+  const categoryWeights = weights.map((weight, index) => (groups[index].category ? weight : -1))
+  const keyGroup = Math.max(...categoryWeights) > 0 ? categoryWeights.indexOf(Math.max(...categoryWeights)) : weights.indexOf(Math.max(...weights))
   const exact = squash(query)
 
   const scored = scoped.map((item, index) => {
@@ -137,15 +148,15 @@ export function searchCases(cases: VocCase[], query: string, categoryFilter = 'a
     let matched = 0
     groups.forEach((group, groupIndex) => {
       const inBody = group.terms.some((term) => item.body.includes(term))
+      if (!inBody) return
       const inCategory = group.category !== undefined && item.entry.category === group.category
-      if (!inBody && !inCategory) return
       matched += 1
       score += weights[groupIndex]
-      if (group.terms.some((term) => item.title.includes(term))) score += weights[groupIndex] * 0.5
+      if (groupIndex === keyGroup && group.terms.some((term) => item.title.includes(term))) score += weights[groupIndex] * 0.5
       if (inCategory) score += weights[groupIndex] * 0.5
     })
-    if (exact && item.title.includes(exact)) score += 5
-    else if (exact && item.body.includes(exact)) score += 2
+    if (exact && item.title.includes(exact)) score += weights[keyGroup]
+    else if (exact && item.body.includes(exact)) score += weights[keyGroup] * 0.4
     return { entry: item.entry, index, score, matched }
   })
 

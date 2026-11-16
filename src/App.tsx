@@ -270,7 +270,13 @@ export default function App() {
       )}
 
       {isReportModalOpen && (
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <div className="modal-overlay" role="presentation">
+              <TabLoading />
+            </div>
+          }
+        >
           <ReportGeneratorModal onClose={() => setIsReportModalOpen(false)} />
         </Suspense>
       )}

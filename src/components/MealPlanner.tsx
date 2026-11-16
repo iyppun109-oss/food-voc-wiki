@@ -124,7 +124,11 @@ function PlanCell({ day, row, portions, showNutrition, onReplace }: CellProps) {
                   {nutrition.servingG}g · {Math.round(nutrition.kcal)}kcal
                 </span>
                 <span>단백질 {nutrition.proteinG.toFixed(1)}g</span>
-                {nutrition.sodiumMg !== null && <span>나트륨 {Math.round(nutrition.sodiumMg).toLocaleString('ko-KR')}mg</span>}
+                {nutrition.sodiumMg !== null && (
+                  <span>
+                    나트륨 {Math.round(nutrition.sodiumMg).toLocaleString('ko-KR')}mg{source?.saltAtTable ? ' (소금 별도)' : ''}
+                  </span>
+                )}
               </>
             ) : (
               '영양 자료 없음'
@@ -198,6 +202,7 @@ function DayTotals({ nutrition, target }: { nutrition: DayNutrition; target: Nut
         <span className="meal-plan__sodium-ratio">
           하루 기준 {SODIUM_DAILY_REFERENCE.toLocaleString('ko-KR')}mg의 {Math.round((nutrition.sodiumMg / SODIUM_DAILY_REFERENCE) * 100)}%
           {nutrition.sodiumMissing.length > 0 ? ` · ${nutrition.sodiumMissing.join(', ')} 나트륨 자료 없음` : ''}
+          {nutrition.saltAtTable.length > 0 ? ` · ${attachJosa(nutrition.saltAtTable.join(', '), '은/는')} 손님이 넣는 소금 별도` : ''}
         </span>
       )}
     </>

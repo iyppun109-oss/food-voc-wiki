@@ -112,13 +112,16 @@ const detectionCases: Array<[string, string, string?]> = [
   ['돌솥비빔밥이 짜요', '염도'],
   ['유통기한 지난 요구르트', '품질'],
   ['빵에 곰팡이 핀 것 같아요', '품질'],
+  ['반찬이 너무 매워요', '품질'],
 ]
 
 // 위험한 이물·상한 음식은 중대 기준
 for (const keyword of ['국에 철사', '유리 조각이 나왔어요', '유통기한 지난 요구르트']) {
   if (!analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null).isHighRisk) fail(`고위험 판정 누락: "${keyword}"`)
 }
-for (const keyword of ['밥에 돌', '머리카락이 나왔어요']) {
+// 위험하지 않은 유리·문의는 중대로 올리지 않음
+if (analyzeReportInput({ keyword: '유리 창문이 더러워요', memo: '', categoryOverride: '' }, null).category === '이물 혼입') fail('판정: "유리 창문" → 이물 혼입')
+for (const keyword of ['밥에 돌', '머리카락이 나왔어요', '유통기한 확인 요청드려요']) {
   if (analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null).isHighRisk) fail(`고위험 과판정: "${keyword}"`)
 }
 for (const [keyword, expected, sub] of detectionCases) {
@@ -182,7 +185,7 @@ const keywordFor: Record<string, string> = {
   안전사고: '돌 씹고 이가 깨짐',
   기타: '대기 줄이 길어요',
 }
-const extraKeywords = ['고기가 덜 익었어요', '국물에 데었어요']
+const extraKeywords = ['고기가 덜 익었어요', '국물에 데었어요', '유통기한 지난 우유', '국에서 유리 조각이 나왔어요']
 
 function subsets<T>(items: T[]): T[][] {
   return items.reduce<T[][]>((acc, item) => acc.concat(acc.map((set) => [...set, item])), [[]])

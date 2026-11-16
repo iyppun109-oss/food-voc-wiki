@@ -25,7 +25,19 @@ const topCases: Array<[string, string]> = [
   ['오징어뼈', '뼈/가시'],
   ['국이 식었어요', '품질'],
   ['위생', '위생 불만'],
+  // 2026-11 2차 검수
+  ['이가 깨졌어요', '안전사고'],
+  ['김치에서 벌레가 나왔어요', '벌레'],
+  ['국물이 미지근해요', '품질'],
+  ['반찬이 식어서 나왔어요', '품질'],
 ]
+
+// 한 글자로 잘려 엉뚱한 사례가 쏟아지면 안 되는 검색어: 결과 수 상한
+for (const [query, max] of [['품질', 150], ['불만', 80], ['문의', 40], ['오이', 10]] as Array<[string, number]>) {
+  const count = searchCases(vocCases, query).cases.length
+  if (count > max) fail(`"${query}": 결과 ${count}건으로 너무 많음(한 글자로 잘림 의심)`)
+}
+if (searchCases(vocCases, '오이').cases.slice(0, 5).some((entry) => entry.title.includes('오징어'))) fail('"오이" 검색 상위에 오징어 사례')
 for (const [query, category] of topCases) {
   const result = searchCases(vocCases, query)
   const top = result.cases[0]
@@ -46,6 +58,10 @@ const stems: Array<[string, string]> = [
   ['불친절해요', '불친절'],
   ['온도', '온도'],
   ['밥이', '밥'],
+  ['품질', '품질'],
+  ['불만', '불만'],
+  ['오이', '오이'],
+  ['국물이', '국물'],
 ]
 for (const [word, expected] of stems) {
   if (stem(word) !== expected) fail(`stem("${word}") = "${stem(word)}" (기대 "${expected}")`)

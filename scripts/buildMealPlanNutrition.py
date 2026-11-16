@@ -19,6 +19,11 @@ import sys
 # 나트륨은 실제로 분석한 값(분석 함량)을 우선합니다. 재료량 기반 값은 카레 루·육수 베이스처럼 양념의 나트륨이
 # 빠져 낮게 나오는 경우가 있어, 분석 값이 없고 100g당 이 값보다 낮으면 '나트륨 자료 없음'으로 둡니다.
 SODIUM_RECIPE_FLOOR = 50
+# 간장·고추장으로 양념하는 볶음·조림·구이는 국물이 없어 나트륨이 진하므로 기준을 높게 둡니다.
+SODIUM_RECIPE_FLOOR_SEASONED = 150
+SEASONED = re.compile(r'(볶음(?!밥)|조림|구이|불고기|강정)')
+# 손님이 소금·후추로 직접 간을 하는 국물 메뉴: DB 값에 소금이 빠져 있습니다.
+SALT_AT_TABLE = {'설렁탕', '소고기곰탕', '도가니탕', '사골우거지탕'}
 # 밥류는 원래 나트륨이 거의 없어 위 기준을 적용하지 않습니다.
 LOW_SODIUM_NATURAL = re.compile(r'(쌀밥|현미밥|흑미밥|잡곡밥|콩밥|찹쌀밥|보리밥)')
 
@@ -320,7 +325,10 @@ def main():
         if name in analyzed_sodium:
             part['sodium'] = analyzed_sodium[name] * part['amount'] / 100
             part['sodiumBasis'] = '분석'
-        elif part['sodium100'] is not None and (part['sodium100'] >= SODIUM_RECIPE_FLOOR or LOW_SODIUM_NATURAL.search(name)):
+        elif part['sodium100'] is not None and (
+            part['sodium100'] >= (SODIUM_RECIPE_FLOOR_SEASONED if SEASONED.search(name) else SODIUM_RECIPE_FLOOR)
+            or LOW_SODIUM_NATURAL.search(name)
+        ):
             part['sodiumBasis'] = '재료량'
         else:
             part['sodium'] = None
@@ -345,13 +353,14 @@ def main():
         sodium_bases = sorted({part['sodiumBasis'] for part in parts if part['sodiumBasis']})
         sodium_basis = None if sodium is None else ('분석 함량' if sodium_bases == ['분석'] else '재료량 기반' if sodium_bases == ['재료량'] else '분석·재료량 혼합')
         entries.append(
-            "  %s: { kcal100: %s, protein100: %s, sodium100: %s, sodiumBasis: %s, dbServing: %d, dbName: %s, basis: %s },"
+            "  %s: { kcal100: %s, protein100: %s, sodium100: %s, sodiumBasis: %s, saltAtTable: %s, dbServing: %d, dbName: %s, basis: %s },"
             % (
                 json.dumps(menu, ensure_ascii=False),
                 round(sum(part['kcal'] for part in parts) / amount * 100, 1),
                 round(sum(part['protein'] for part in parts) / amount * 100, 2),
                 'null' if sodium is None else sodium,
                 'null' if sodium_basis is None else json.dumps(sodium_basis, ensure_ascii=False),
+                'true' if menu in SALT_AT_TABLE else 'false',
                 round(amount),
                 json.dumps(' + '.join(db_names), ensure_ascii=False),
                 json.dumps(' + '.join(origins), ensure_ascii=False),
@@ -385,6 +394,8 @@ export interface MenuNutrition {
   sodium100: number | null
   /** 나트륨 값의 근거: 실제 분석한 값인지, 재료량으로 계산한 값인지 */
   sodiumBasis: '분석 함량' | '재료량 기반' | '분석·재료량 혼합' | null
+  /** 손님이 소금으로 직접 간을 하는 국물 메뉴(나트륨 값에 소금이 빠져 있음) */
+  saltAtTable: boolean
   /** DB에 적힌 식품중량(참고용) */
   dbServing: number
   /** DB에 실린 음식명 */

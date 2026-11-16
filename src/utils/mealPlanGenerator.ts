@@ -125,6 +125,8 @@ export interface DayNutrition {
   sodiumMg: number
   /** 열량 자료는 있지만 나트륨 자료가 없는 메뉴명 */
   sodiumMissing: string[]
+  /** 손님이 소금으로 간을 하는 국물 메뉴(나트륨에 소금이 빠져 있음) */
+  saltAtTable: string[]
   sodiumStatus: NutritionStatus
   servingG: number
   /** 영양 자료가 있는 메뉴 수 */
@@ -206,7 +208,9 @@ function formatDate(date: Date) {
 
 /** 시작일부터 평일만 weeks × 5일을 만듭니다. 시작일이 주말이면 다음 월요일부터 시작합니다. */
 export function buildWeekdayDates(startDate: string, weeks: number) {
-  const date = parseDate(startDate)
+  // 날짜가 비었거나 잘못되면 다음 월요일부터 짭니다(화면에서는 막지만 함수 단독 호출 대비).
+  const parsed = startDate ? parseDate(startDate) : null
+  const date = parsed && !Number.isNaN(parsed.getTime()) && parsed.getFullYear() > 2000 ? parsed : parseDate(nextMonday())
   while (date.getDay() === 0 || date.getDay() === 6) date.setDate(date.getDate() + 1)
   const result: Date[] = []
   while (result.length < weeks * 5) {
@@ -320,6 +324,7 @@ export function computeDayNutrition(day: PlanDay, options: MealPlanOptions): Day
   let known = 0
   const missing: string[] = []
   const sodiumMissing: string[] = []
+  const saltAtTable: string[] = []
   dayItems(day).forEach((item) => {
     const data = itemNutrition(item, portions)
     if (!data) {
@@ -329,6 +334,7 @@ export function computeDayNutrition(day: PlanDay, options: MealPlanOptions): Day
     known += 1
     kcal += data.kcal
     proteinG += data.proteinG
+    if (nutritionOf(item.name)?.saltAtTable) saltAtTable.push(item.name)
     if (data.sodiumMg === null) sodiumMissing.push(item.name)
     else sodiumMg += data.sodiumMg
     servingG += data.servingG
@@ -358,6 +364,7 @@ export function computeDayNutrition(day: PlanDay, options: MealPlanOptions): Day
     proteinG: round1(proteinG),
     sodiumMg: Math.round(sodiumMg),
     sodiumMissing,
+    saltAtTable,
     sodiumStatus,
     servingG: Math.round(servingG),
     known,
@@ -426,7 +433,7 @@ function nutritionPenalty(candidate: PlanMenuItem, ctx: ScoreContext) {
   // 나트륨 상한을 넘는 조합은 낮추고, '염도'를 피할 요소로 고르면 더 크게 낮춥니다.
   const { sodiumMax } = options.target
   if (sodiumMg > sodiumMax) {
-    penalty += options.avoid.includes('염도') ? Math.min(40, (sodiumMg - sodiumMax) / 50) : (sodiumMg - sodiumMax) / 150
+    penalty += options.avoid.includes('염도') ? Math.min(40, (sodiumMg - sodiumMax) / 40) : Math.min(24, (sodiumMg - sodiumMax) / 60)
   }
   return penalty
 }

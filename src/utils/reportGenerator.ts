@@ -475,6 +475,27 @@ const cookingQuality: Partial<CategoryKnowledge> = {
   clientPrevention: '향후 메뉴별 가열 시간과 조리 온도 기준을 재교육하고, 제공 전 조리 상태 확인을 강화하겠습니다.',
 }
 
+/** 상했거나 유통기한이 지난 음식: 품질의 세부 갈래(중대 기준) */
+const spoiledQuality: Partial<CategoryKnowledge> = {
+  label: '품질 / 변질·유통기한 경과 의심',
+  clientLabel: '변질·유통기한 경과 의심',
+  incident: '{m}의 변질 또는 유통기한 경과가 의심된다는 고객 제보 접수됨(긴급 확인 대상).',
+  customerEmpathy: '{t}의 상태가 좋지 않아 많이 놀라셨을 것 같습니다.',
+  customerCheck:
+    '드신 뒤 몸이 불편하시면 바로 말씀해 주십시오. 해당 제품의 유통기한과 보관 상태, 같은 날 들어온 제품을 바로 확인하겠습니다.',
+  customerPrevention: '확인 결과에 따라 입고 검수와 보관 기준을 다시 점검하겠으며, 확인되는 내용은 신속히 안내드리겠습니다.',
+  internalChecks: [
+    { text: '해당 제품 회수·보관 및 유통기한·제조번호 확인 필요함.', topic: /유통기한|제조번호|회수|보관/ },
+    { text: '고객 건강 이상 여부 확인 필요함.' },
+    { text: '동일 입고분의 유통기한·보관 상태 확인 예정임.', sameBatch: true, topic: /입고분|동일/ },
+    { text: '냉장·냉동 보관 온도 기록 확인 예정임.', topic: /온도/ },
+  ],
+  causes: [],
+  internalPrevention: ['입고 검수 시 유통기한 확인을 강화하겠음.', '선입선출과 보관 온도 점검을 강화하겠음.'],
+  clientCheck: '해당 제품의 유통기한과 제조번호, 동일 입고분, 보관 온도 기록을 확인하겠으며, 확인 전까지 원인을 단정하지 않겠습니다.',
+  clientPrevention: '확인 결과에 따라 입고 검수와 선입선출, 보관 온도 관리를 강화하겠습니다.',
+}
+
 /** 화상·베임·넘어짐 등 부상: 안전사고의 세부 갈래 */
 const injurySafety: Partial<CategoryKnowledge> = {
   label: '안전사고 / 부상',
@@ -634,13 +655,17 @@ export interface ReportAnalysis {
   isInjury: boolean
   isAllergy: boolean
   isHighRisk: boolean
+  /** 상했거나 유통기한이 지난 음식 */
+  isSpoiled: boolean
   label: string
 }
 
 /** 삼키거나 씹으면 다칠 수 있는 이물: 이물 혼입이어도 중대 기준으로 보고합니다. */
-const hazardousForeign = /(유리(?!컵|창|문|병)|철사|쇳조각|금속|쇠붙이|철수세미|스테이플|호치키스|볼트|너트|나사|칼날|(^|\s)못(이|이나|\s?조각))/
+const hazardousForeign = /(유리(?!\s?(컵|창|문|병))|철사|쇳조각|금속|쇠붙이|철수세미|스테이플|호치키스|볼트|너트|나사|칼날|(^|\s)못(이|이나|\s?조각))/
 /** 상하거나 기한이 지난 음식: 품질이어도 식중독 위험이 있어 중대 기준으로 보고합니다. */
 const spoiledFood = /(유통기한|소비기한|기한(이)?\s?지난|곰팡|상했|상한|변질|쉰내|쉬었)/
+/** 확인을 부탁하는 문의는 실제 변질 제보가 아니므로 중대로 올리지 않습니다('유통기한 확인 요청'). */
+const inquiryOnly = /(요청|문의|궁금|알려\s?주|확인\s?(부탁|해\s?주))/
 
 /**
  * 유형 판정은 사용자가 직접 입력한 키워드와 메모만 씁니다.
@@ -676,7 +701,8 @@ export function analyzeReportInput(
       QUALITY_COOKING_STATUS_KEYWORDS.some((keyword) => noSpace.includes(keyword.replace(/\s+/g, ''))))
   const isInjury = category === '안전사고' && injuryKeywords.test(lower) && !dentalKeywords.test(lower)
   const isAllergy = category === '식중독 의심' && allergyKeywords.test(lower)
-  const kb = resolveKnowledge(category, isCookingQuality, isInjury, isAllergy)
+  const isSpoiled = category === '품질' && spoiledFood.test(lower) && !inquiryOnly.test(lower)
+  const kb = resolveKnowledge(category, isCookingQuality, isInjury, isAllergy, isSpoiled)
 
   return {
     category,
@@ -689,11 +715,12 @@ export function analyzeReportInput(
     isCookingQuality,
     isInjury,
     isAllergy,
+    isSpoiled,
     isHighRisk:
       category === '식중독 의심' ||
       category === '안전사고' ||
       (category === '이물 혼입' && hazardousForeign.test(lower)) ||
-      (category === '품질' && spoiledFood.test(lower)),
+      isSpoiled,
     label: kb.label,
   }
 }
@@ -710,8 +737,9 @@ export function resolveCategory(form: Pick<ReportFormState, 'keyword' | 'memo'>,
   }
 }
 
-function resolveKnowledge(category: CategoryType, isCookingQuality: boolean, isInjury: boolean, isAllergy = false): CategoryKnowledge {
+function resolveKnowledge(category: CategoryType, isCookingQuality: boolean, isInjury: boolean, isAllergy = false, isSpoiled = false): CategoryKnowledge {
   const base = knowledge[category]
+  if (isSpoiled) return { ...base, ...spoiledQuality }
   if (isCookingQuality) return { ...base, ...cookingQuality }
   if (isInjury) return { ...base, ...injurySafety }
   if (isAllergy) return { ...base, ...allergySymptom }
@@ -740,7 +768,7 @@ function tidyQuote(text: string) {
 
 function buildContext(form: ReportFormState, selectedCase: VocCase | null) {
   const analysis = analyzeReportInput(form, selectedCase)
-  const kb = resolveKnowledge(analysis.category, analysis.isCookingQuality, analysis.isInjury, analysis.isAllergy)
+  const kb = resolveKnowledge(analysis.category, analysis.isCookingQuality, analysis.isInjury, analysis.isAllergy, analysis.isSpoiled)
   const doneActions = doneActionOptions.filter((action) => form.onsiteActions.includes(action))
   const menuInput = cleanText(form.menuName)
   const hasMenu = menuInput.length > 0

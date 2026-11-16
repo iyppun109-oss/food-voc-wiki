@@ -141,7 +141,7 @@ function detectMemoRisks(memo: string): VocRisk[] {
   if (/대기|기다리|줄(이|을)?\s?(길|서|섰|많)/.test(text)) {
     result.add('대기시간')
   }
-  if (/식어|차갑|보온/.test(text)) {
+  if (/식어|식었|차갑|미지근|보온|불어|불었|퍼졌|눅눅/.test(text)) {
     result.add('보온 지연')
   }
   if (/이물|이물질|돌(멩이|\s?조각|이 (나|씹))|머리카락|털이|이상한 게/.test(text)) {
