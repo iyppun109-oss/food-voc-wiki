@@ -166,9 +166,19 @@ for (const keyword of [
   '어제 먹은 뒤 병원 진료 받았어요',
   '식사 후 손이 저려요',
   '먹고 나서 식은땀이 나요',
+  '점심 먹고 쓰러졌어요',
+  '식사하다 기절했어요',
+  '먹고 나서 병원 갔어요',
+  '먹었더니 몸에 뭐가 났어요',
+  '국 먹고 입안이 헐었어요',
+  '먹은 뒤로 계속 화장실 가요',
+  '먹고 나서 입이 얼얼해요',
 ]) {
   const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
   if (!analysis.isHighRisk) fail(`안전망 누락: "${keyword}" → ${analysis.label}`)
+  if (analysis.category === '기타') fail(`안전망: 중대인데 기타 문구: "${keyword}"`)
+  const report = generateReportContents({ ...base, keyword }, null)
+  if (/번거로우셨/.test(report.customerMessage)) fail(`안전망: 중대 사건에 '번거로우셨' 문구: "${keyword}"`)
 }
 for (const keyword of [
   '밥 먹으러 왔는데 몸이 안 좋아서 일찍 갔어요',
@@ -183,6 +193,16 @@ for (const keyword of [
   '숨은 메뉴 있나요',
   '병원 직원 식당인데 국이 짜요',
   '직원들 위생 의식이 부족해 보여요',
+  '기절할 만큼 맛있어요',
+  '쓰러질 듯 배고픈데 줄이 길어요',
+  '119 안전교육 일정 문의',
+  '응급실 근무자 야간 식사 운영 문의',
+  '약 먹는 시간 맞추려면 몇 시까지 운영하나요',
+  '진료 받고 오느라 늦었는데 밥이 없어요',
+  '입원 환자 보호자도 이용 가능한가요',
+  '구급함 위치 안내가 없어요',
+  '먹고 나서 목이 말라요 물이 없어요',
+  '먹고 나서 배가 불러요',
 ]) {
   const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
   if (analysis.isHighRisk) fail(`안전망 과판정: "${keyword}" → ${analysis.label}`)

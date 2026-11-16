@@ -762,9 +762,9 @@ const observedFact = /(마셨|먹었|먹은|먹고|먹다|드셨|드시고|핀|�
  * - 의료·응급 표현이 있으면 유형과 상관없이 중대로 봅니다.
  * - 먹은 뒤(완료형) 몸·증상 표현이 이어지는데 유형이 정해지지 않았으면 '식사 후 이상 증상'으로 봅니다.
  */
-const medicalTerms = /(응급실|응급\s?(처치|상황|조치)|병원\s?(에|을|으로)?\s?(갔|가|감|가서|다녀|진료|치료|방문|이송)|119|구급|의식\s?(을|이)?\s?(잃|없)|기절|쓰러|실신|진료\s?(를)?\s?(받|봤)|입원|약\s?(을)?\s?(먹|처방|받))/
-const eatenThen = /(?<eat>먹고|먹은\s?(?:뒤|후|다음)|먹었더니|먹었는데|먹다가|마시고|마신\s?(?:뒤|후)|마셨더니|드시고|드신\s?(?:뒤|후)|식사\s?(?:후|하고|하다가|중))\S*\s?(?<rest>.*)/
-const bodySymptom = /(기침|쌕쌕|간질|목이|목에|목구멍|숨|호흡|피부|가슴|심장|두근|열이|열나|오한|배가|배\s?(아|통)|속이|머리가\s?(아|어지)|두통|어지|토했|토할|구토|설사|두드러기|가려|부었|붓|빨개|빨갛|따끔|저려|저림|마비|떨려|식은땀|몸이)/
+const medicalTerms = /(응급실\s?(에|으로|을)?\s?(갔|가서|실려|이송|다녀|왔)|병원\s?(에|으로|을)?\s?(갔|가서|실려|이송|다녀왔)|119\s?(를|에)?\s?(불렀|불러|신고|와서|출동)|구급차|의식\s?(을|이)?\s?(잃|없)|기절했|기절해서|기절함|쓰러졌|쓰러져서|쓰러짐|실신했|실신해서|실려\s?갔|입원했|입원해서|입원함|진료\s?(를)?\s?받았|약\s?(을)?\s?(처방\s?받|먹었))/
+const eatenThen = /(?<eat>먹고|먹은\s?(?:뒤|후|다음)|먹은\s?뒤로|먹었더니|먹었는데|먹다가|마시고|마신\s?(?:뒤|후)|마셨더니|드시고|드신\s?(?:뒤|후)|식사\s?(?:후|하고|하다가|하다|중))\S*\s?(?<rest>.*)/
+const bodySymptom = /(기침|쌕쌕|간질|목이(?!\s?(마르|말라|말랐))|목에|목구멍|숨|호흡|피부|가슴|심장|두근|열이|열나|오한|배가\s?(아|쓰|살살|꾸르|불편|뒤틀)|배\s?(아|통)|복통|속이|머리가\s?(아|어지)|두통|어지|토했|토할|구토|설사|화장실\s?(을|에)?\s?(계속|자주|여러)|(계속|자주|여러\s?번)\s?화장실|두드러기|두드러|뭐가\s?(났|돋)|가려|부었|붓|빨개|빨갛|따끔|얼얼|헐었|헐어|입안|저려|저림|마비|떨려|식은땀|몸이)/
 
 /** 알레르기 성분을 묻는 말 */
 const allergyQuestion = /(문의|궁금|알려\s?주|성분|들어\s?(갔|가|있)|있나요|인가요|되나요|확인\s?(부탁|해\s?주)|추가해\s?주|표시해\s?주|요청)/
@@ -804,11 +804,16 @@ export function analyzeReportInput(
   const afterEating = source.match(eatenThen)
   const safetyNetSymptom = afterEating?.groups?.rest.match(bodySymptom) ?? null
   let safetyEvidence: string[] = []
+  const medicalEvent = source.match(medicalTerms)
   if (detected === '기타' && !fromCase && afterEating?.groups && safetyNetSymptom) {
     detected = '식중독 의심'
     safetyEvidence = [afterEating.groups.eat, safetyNetSymptom[1]]
+  } else if (detected === '기타' && !fromCase && medicalEvent) {
+    // 쓰러짐·응급실 같은 의료 사건은 다른 유형이 없으면 식사 후 이상 증상으로 보고 고객 상태부터 확인합니다.
+    detected = '식중독 의심'
+    safetyEvidence = afterEating?.groups ? [afterEating.groups.eat, medicalEvent[1]] : [medicalEvent[1]]
   }
-  const mentionsMedical = medicalTerms.test(source)
+  const mentionsMedical = Boolean(medicalEvent)
 
   const override = form.categoryOverride && reportCategoryOptions.includes(form.categoryOverride) ? form.categoryOverride : ''
   const category = (override || detected) as CategoryType
