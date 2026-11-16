@@ -74,7 +74,8 @@
 npm run report:check   # 보고서
 npm run search:check   # VOC 검색 (scripts/checkSearch.ts)
 npm run menu:check     # 메뉴 추천 데이터·결과 (scripts/checkMenus.ts)
-npm run check          # 세 가지 모두
+npm run plan:check     # 식단표 목표 달성률·나트륨 (scripts/checkMealPlan.ts)
+npm run check          # 네 가지 모두
 ```
 
 다음 네 가지를 검사합니다.

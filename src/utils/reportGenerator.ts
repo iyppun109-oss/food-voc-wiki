@@ -110,6 +110,8 @@ interface CategoryKnowledge {
   clientCheck: string
   /** 고객사용 재발 방지 */
   clientPrevention: string
+  /** 문의처럼 사과할 일이 아닌 경우 고객용 사과 문장을 넣지 않습니다. */
+  noApology?: boolean
 }
 
 const sameBatchCheck = (what: string) => ({ text: `동일 조리분 내 ${what} 여부 확인 예정임.`, sameBatch: true, topic: /동일 조리분|같은 시간/ })
@@ -496,6 +498,26 @@ const spoiledQuality: Partial<CategoryKnowledge> = {
   clientPrevention: '확인 결과에 따라 입고 검수와 선입선출, 보관 온도 관리를 강화하겠습니다.',
 }
 
+/** 유통기한·보관 상태를 확인해 달라는 문의: 불만이나 변질을 단정하지 않습니다. */
+const storageInquiry: Partial<CategoryKnowledge> = {
+  label: '품질 / 유통기한·보관 상태 문의',
+  clientLabel: '유통기한·보관 상태 문의',
+  incident: '{m}의 유통기한·보관 상태 확인 요청 접수됨.',
+  customerEmpathy: '{t}의 유통기한과 보관 상태를 문의해 주셔서 감사합니다.',
+  customerCheck: '해당 제품의 유통기한과 보관 상태를 바로 확인해 안내드리겠습니다.',
+  customerPrevention: '앞으로도 입고 검수와 보관 관리를 꼼꼼히 하겠습니다.',
+  internalChecks: [
+    { text: '해당 제품의 유통기한·제조번호 확인 예정임.', topic: /유통기한|제조번호/ },
+    { text: '보관 온도 기록 확인 예정임.', topic: /온도/ },
+    { text: '확인 결과 고객 안내 필요함.' },
+  ],
+  causes: [],
+  internalPrevention: ['입고 검수 시 유통기한 확인을 유지하겠음.'],
+  clientCheck: '해당 제품의 유통기한과 보관 상태를 확인해 고객에게 안내하겠습니다.',
+  clientPrevention: '입고 검수와 보관 관리를 계속 점검하겠습니다.',
+  noApology: true,
+}
+
 /** 화상·베임·넘어짐 등 부상: 안전사고의 세부 갈래 */
 const injurySafety: Partial<CategoryKnowledge> = {
   label: '안전사고 / 부상',
@@ -657,6 +679,8 @@ export interface ReportAnalysis {
   isHighRisk: boolean
   /** 상했거나 유통기한이 지난 음식 */
   isSpoiled: boolean
+  /** 유통기한·보관 상태 확인 문의(불만·변질로 단정하지 않음) */
+  isStorageInquiry: boolean
   label: string
 }
 
@@ -702,7 +726,8 @@ export function analyzeReportInput(
   const isInjury = category === '안전사고' && injuryKeywords.test(lower) && !dentalKeywords.test(lower)
   const isAllergy = category === '식중독 의심' && allergyKeywords.test(lower)
   const isSpoiled = category === '품질' && spoiledFood.test(lower) && !inquiryOnly.test(lower)
-  const kb = resolveKnowledge(category, isCookingQuality, isInjury, isAllergy, isSpoiled)
+  const isStorageInquiry = category === '품질' && spoiledFood.test(lower) && inquiryOnly.test(lower)
+  const kb = resolveKnowledge(category, isCookingQuality, isInjury, isAllergy, isSpoiled, isStorageInquiry)
 
   return {
     category,
@@ -716,6 +741,7 @@ export function analyzeReportInput(
     isInjury,
     isAllergy,
     isSpoiled,
+    isStorageInquiry,
     isHighRisk:
       category === '식중독 의심' ||
       category === '안전사고' ||
@@ -737,9 +763,17 @@ export function resolveCategory(form: Pick<ReportFormState, 'keyword' | 'memo'>,
   }
 }
 
-function resolveKnowledge(category: CategoryType, isCookingQuality: boolean, isInjury: boolean, isAllergy = false, isSpoiled = false): CategoryKnowledge {
+function resolveKnowledge(
+  category: CategoryType,
+  isCookingQuality: boolean,
+  isInjury: boolean,
+  isAllergy = false,
+  isSpoiled = false,
+  isStorageInquiry = false,
+): CategoryKnowledge {
   const base = knowledge[category]
   if (isSpoiled) return { ...base, ...spoiledQuality }
+  if (isStorageInquiry) return { ...base, ...storageInquiry }
   if (isCookingQuality) return { ...base, ...cookingQuality }
   if (isInjury) return { ...base, ...injurySafety }
   if (isAllergy) return { ...base, ...allergySymptom }
@@ -768,7 +802,7 @@ function tidyQuote(text: string) {
 
 function buildContext(form: ReportFormState, selectedCase: VocCase | null) {
   const analysis = analyzeReportInput(form, selectedCase)
-  const kb = resolveKnowledge(analysis.category, analysis.isCookingQuality, analysis.isInjury, analysis.isAllergy, analysis.isSpoiled)
+  const kb = resolveKnowledge(analysis.category, analysis.isCookingQuality, analysis.isInjury, analysis.isAllergy, analysis.isSpoiled, analysis.isStorageInquiry)
   const doneActions = doneActionOptions.filter((action) => form.onsiteActions.includes(action))
   const menuInput = cleanText(form.menuName)
   const hasMenu = menuInput.length > 0
@@ -1014,7 +1048,7 @@ function buildCustomerMessage(context: ReportContext): string {
     doneParts.push('해당 음식은 회수해 두었습니다.')
   }
 
-  const paragraphs = [greeting, `${empathy} ${apology}`]
+  const paragraphs = [greeting, kb.noApology ? empathy : `${empathy} ${apology}`]
   if (context.analysis.isHighRisk) {
     paragraphs.push(kb.customerCheck)
     paragraphs.push([...doneParts, kb.customerPrevention].join(' '))

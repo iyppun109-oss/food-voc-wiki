@@ -389,7 +389,10 @@ function slotAverage(row: PlanRow, type: DayType, options: MealPlanOptions) {
       : {
           kcal: values.reduce((sum, data) => sum + data.kcal, 0) / values.length,
           proteinG: values.reduce((sum, data) => sum + data.proteinG, 0) / values.length,
-          sodiumMg: values.reduce((sum, data) => sum + (data.sodiumMg ?? 0), 0) / values.length,
+          sodiumMg: (() => {
+            const known = values.map((data) => data.sodiumMg).filter((value): value is number => value !== null)
+            return known.length === 0 ? 0 : known.reduce((sum, value) => sum + value, 0) / known.length
+          })(),
         }
   slotAverageCache.set(key, average)
   return average
@@ -407,7 +410,8 @@ function nutritionPenalty(candidate: PlanMenuItem, ctx: ScoreContext) {
 
   let kcal = own.kcal
   let proteinG = own.proteinG
-  let sodiumMg = own.sodiumMg ?? 0
+  // 나트륨 자료가 없는 메뉴를 0으로 치면 오히려 유리해지므로 그 칸 평균으로 계산합니다.
+  let sodiumMg = own.sodiumMg ?? slotAverage(row, day.type, options)?.sodiumMg ?? 0
   for (const other of planRows) {
     if (other === row) continue
     const item = day.cells[other]
@@ -416,7 +420,7 @@ function nutritionPenalty(candidate: PlanMenuItem, ctx: ScoreContext) {
       if (!known) continue
       kcal += known.kcal
       proteinG += known.proteinG
-      sodiumMg += known.sodiumMg ?? 0
+      sodiumMg += known.sodiumMg ?? slotAverage(other, day.type, options)?.sodiumMg ?? 0
     } else if (!isRowEmpty(day, other)) {
       const expected = slotAverage(other, day.type, options)
       if (!expected) continue
@@ -433,7 +437,7 @@ function nutritionPenalty(candidate: PlanMenuItem, ctx: ScoreContext) {
   // 나트륨 상한을 넘는 조합은 낮추고, '염도'를 피할 요소로 고르면 더 크게 낮춥니다.
   const { sodiumMax } = options.target
   if (sodiumMg > sodiumMax) {
-    penalty += options.avoid.includes('염도') ? Math.min(40, (sodiumMg - sodiumMax) / 40) : Math.min(24, (sodiumMg - sodiumMax) / 60)
+    penalty += options.avoid.includes('염도') ? Math.min(60, (sodiumMg - sodiumMax) / 20) : Math.min(30, (sodiumMg - sodiumMax) / 40)
   }
   return penalty
 }
@@ -448,6 +452,10 @@ function scoreCandidate(candidate: PlanMenuItem, ctx: ScoreContext) {
 
   // 영양 자료 없는 메뉴는 하루 1개까지만 둡니다(그날 합계를 판정할 수 있게).
   if (!itemNutrition(candidate, options.portions) && sameDay.some((item) => !itemNutrition(item, options.portions))) score -= 12
+  // 나트륨 자료가 없는 메뉴는 그날 나트륨을 판정할 수 없게 하므로 뒤로 미루고, 하루 1개까지만 둡니다.
+  if (itemNutrition(candidate, options.portions)?.sodiumMg === null) {
+    score -= sameDay.some((item) => itemNutrition(item, options.portions)?.sodiumMg === null) ? 12 : 6
+  }
 
   // 반복: 기간 전체에서 사용 횟수와 가장 가까운 사용일까지의 거리
   let uses = 0

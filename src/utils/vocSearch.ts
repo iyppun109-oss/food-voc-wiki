@@ -31,6 +31,8 @@ const searchSynonyms: Array<{ pattern: RegExp; terms: string[]; category?: strin
   { pattern: /이물|철사|유리|돌멩이|쇳조각/, terms: ['이물'], category: '이물 혼입' },
   { pattern: /다쳤|다침|화상|데었|미끄러|넘어|치아|이빨/, terms: ['안전사고', '다쳤', '화상', '치아'], category: '안전사고' },
   { pattern: /설익|덜익|안익|생쌀/, terms: ['설익', '덜익', '덜 익', '생쌀'], category: '품질' },
+  { pattern: /질어|질음|질다|질척/, terms: ['질음', '질어', '질다', '질척'], category: '품질' },
+  { pattern: /똑같|반복|매일같|맨날같/, terms: ['반복', '똑같', '같은 메뉴'] },
 ]
 
 /** 검색에서 버릴 군말 */
@@ -73,6 +75,7 @@ const phraseRules: Array<[RegExp, string]> = [
   [/다\s?떨어\S*/g, '품절'],
   [/양\s?(이)?\s?(적|부족|모자)\S*/g, '양부족'],
   [/(^|\s)(이가|이빨이?)\s?(깨|부러|빠|아프|아파)\S*/g, ' 치아 '],
+  [/(매일|맨날|항상)\s?(똑같|같)\S*/g, ' 반복 '],
 ]
 
 export function queryGroups(query: string): QueryGroup[] {

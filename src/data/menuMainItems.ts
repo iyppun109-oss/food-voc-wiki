@@ -543,7 +543,7 @@ const mainTemplates: Array<Omit<MainMenuItem, 'id'>> = [
     risks: ['양 부족'],
     bestSides: ['단무지', '양배추샐러드', '깍두기'],
     avoidSides: ['감자조림', '감자채볶음'],
-    bestSoups: ['미소장국', '유부장국'],
+    bestSoups: ['계란국', '유부장국'],
     upgradeIdeas: ['돈가스·새우튀김 토핑 선택', '반숙 계란 토핑'],
     vocPrevention: ['눌어붙지 않게 수시로 젓기', '1인 소스량 계량'],
     operationNotes: ['채소는 크기를 맞춰 썰어 고르게 익히기', '되직해지면 물로 농도 조절'],

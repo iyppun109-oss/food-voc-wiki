@@ -113,7 +113,21 @@ const detectionCases: Array<[string, string, string?]> = [
   ['유통기한 지난 요구르트', '품질'],
   ['빵에 곰팡이 핀 것 같아요', '품질'],
   ['반찬이 너무 매워요', '품질'],
+  ['나사 같은 게 씹힘', '이물 혼입'],
+  ['머리끈이 나왔어요', '이물 혼입'],
+  ['음식이 시큼해요', '품질'],
+  ['유리문 손잡이가 끈적해요', '위생 불만'],
 ]
+
+// 문의는 불만·변질로 단정하지 않음
+for (const keyword of ['유통기한 확인 요청드려요', '우유가 상했는지 확인해 주세요']) {
+  const form = { ...base, keyword, menuName: '우유' }
+  const analysis = analyzeReportInput(form, null)
+  if (!analysis.isStorageInquiry) fail(`문의 갈래로 판정되지 않음: "${keyword}"`)
+  const report = generateReportContents(form, null)
+  const all = [report.customerMessage, report.internalReport, report.clientReport].join('\n')
+  if (/기대에 미치지|좋지 않다는|상태가 좋지 않아/.test(all)) fail(`문의인데 불만 문구가 들어감: "${keyword}"`)
+}
 
 // 위험한 이물·상한 음식은 중대 기준
 for (const keyword of ['국에 철사', '유리 조각이 나왔어요', '유통기한 지난 요구르트']) {
