@@ -29,7 +29,7 @@ import {
   type Season,
   type SiteType,
 } from '../utils/mealPlanGenerator'
-import '../mealPlan.css'
+import { attachJosa } from '../utils/koreanJosa'
 
 function currentSeason(date = new Date()): Season {
   const month = date.getMonth() + 1
@@ -68,6 +68,7 @@ const minPortion: Record<MealSlot, number> = {
 function validationError(options: MealPlanOptions) {
   if (!options.startDate) return '시작일을 골라 주세요.'
   if (options.target.kcalMin >= options.target.kcalMax) return '열량 하한이 상한보다 작아야 합니다.'
+  if (options.target.sodiumMax < 300) return '나트륨 상한은 300mg 이상으로 입력해 주세요.'
   const low = (Object.keys(minPortion) as MealSlot[]).filter((slot) => (options.portions[slot] ?? 0) < minPortion[slot])
   if (low.length > 0) return `1인 분량이 너무 작습니다: ${low.map((slot) => `${portionLabels[slot]} ${minPortion[slot]}g 이상`).join(', ')}`
   return ''
@@ -135,7 +136,7 @@ function PlanCell({ day, row, portions, showNutrition, onReplace }: CellProps) {
         type="button"
         className="meal-plan__swap"
         onClick={onReplace}
-        aria-label={`${day.date} ${planRowLabels[row]} ${item.name}을(를) 다른 메뉴로 바꾸기`}
+        aria-label={`${day.date} ${planRowLabels[row]} ${attachJosa(item.name, '을/를')} 다른 메뉴로 바꾸기`}
         title="다른 메뉴로 바꾸기"
       >
         <RefreshCw size={16} strokeWidth={1.5} aria-hidden="true" />
@@ -192,16 +193,11 @@ function DayTotals({ nutrition, target }: { nutrition: DayNutrition; target: Nut
         status={nutrition.kcalStatus}
       />
       <Gauge label="단백질" value={nutrition.proteinG} unit="g" min={target.proteinMin} status={nutrition.proteinStatus} />
+      <Gauge label="나트륨" value={nutrition.sodiumMg} unit="mg" min={0} max={target.sodiumMax} status={nutrition.sodiumStatus} />
       {nutrition.known > 0 && (
-        <span
-          className={`meal-plan__sodium${nutrition.sodiumMg > SODIUM_DAILY_REFERENCE ? ' meal-plan__sodium--high' : ''}`}
-          title="국물을 모두 먹었을 때 기준"
-        >
-          나트륨 {nutrition.sodiumMg.toLocaleString('ko-KR')}mg
-          <span className="meal-plan__sodium-ratio">
-            하루 기준의 {Math.round((nutrition.sodiumMg / SODIUM_DAILY_REFERENCE) * 100)}%
-            {nutrition.missing.length > 0 ? ' · 일부 제외' : ''}
-          </span>
+        <span className="meal-plan__sodium-ratio">
+          하루 기준 {SODIUM_DAILY_REFERENCE.toLocaleString('ko-KR')}mg의 {Math.round((nutrition.sodiumMg / SODIUM_DAILY_REFERENCE) * 100)}%
+          {nutrition.sodiumMissing.length > 0 ? ` · ${nutrition.sodiumMissing.join(', ')} 나트륨 자료 없음` : ''}
         </span>
       )}
     </>
@@ -313,7 +309,7 @@ export function MealPlanner() {
     )
   }
 
-  const setTargetValue = (key: 'kcalMin' | 'kcalMax' | 'proteinMin', raw: string) => {
+  const setTargetValue = (key: 'kcalMin' | 'kcalMax' | 'proteinMin' | 'sodiumMax', raw: string) => {
     const value = Math.max(0, Number(raw) || 0)
     setOptions((prev) => ({ ...prev, target: { ...prev.target, site: '직접 설정', [key]: value } }))
   }
@@ -481,10 +477,22 @@ export function MealPlanner() {
                 onChange={(event) => setTargetValue('proteinMin', event.target.value)}
               />
             </label>
+
+            <label className="menu-lab__field">
+              <span>나트륨 상한 (mg)</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={300}
+                step={50}
+                value={options.target.sodiumMax}
+                onChange={(event) => setTargetValue('sodiumMax', event.target.value)}
+              />
+            </label>
           </div>
           {targetInvalid && (
             <p className="meal-plan__field-error" role="alert">
-              열량 상한은 하한보다 커야 합니다
+              열량 상한은 하한보다 커야 합니다.
             </p>
           )}
         </fieldset>
@@ -576,7 +584,7 @@ export function MealPlanner() {
           )}
           {copyState === 'error' && (
             <p className="meal-plan__field-error" role="alert">
-              복사하지 못했습니다. 표를 직접 선택해 복사해 주세요
+              복사하지 못했습니다. 표를 직접 선택해 복사해 주세요.
             </p>
           )}
 
@@ -597,7 +605,7 @@ export function MealPlanner() {
               <dt>하루 평균 나트륨</dt>
               <dd>{summary.avgSodiumMg === null ? '–' : `${summary.avgSodiumMg.toLocaleString('ko-KR')}mg`}</dd>
               <dd className="meal-plan__stat-note">
-                하루 기준 {SODIUM_DAILY_REFERENCE.toLocaleString('ko-KR')}mg · 국물 모두 먹은 기준
+                한 끼 상한 {target.sodiumMax.toLocaleString('ko-KR')}mg · 국물 모두 먹은 기준
               </dd>
             </div>
             <div className="meal-plan__stat">
@@ -754,7 +762,8 @@ export function MealPlanner() {
             {nutritionSource.version ? ` ${nutritionSource.version}판` : ''}의 100g당 수치에 위에서 정한 1인 분량을 곱한
             값입니다. 메뉴명이 DB와 다르면 가장 가까운 음식의 수치를 썼습니다(아래 '영양 계산 근거'에서 확인). 실제
             레시피에 따라 달라지므로 영양 표시에 쓰기 전에 확인해 주세요. 나트륨은 국물을 모두 먹었을 때 기준이며, 하루
-            기준 {SODIUM_DAILY_REFERENCE.toLocaleString('ko-KR')}mg은 한국인 영양소 섭취기준의 성인 만성질환위험감소섭취량입니다.
+            기준 {SODIUM_DAILY_REFERENCE.toLocaleString('ko-KR')}mg은 한국인 영양소 섭취기준의 성인 만성질환위험감소섭취량입니다. 나트륨은
+            식약처 DB의 분석 값을 우선하고, 재료량으로만 계산되어 양념 나트륨이 빠졌을 수 있는 값은 '나트륨 자료 없음'으로 둡니다.
             "보충"은 만족도 평가 자료가 없는 메뉴입니다.
           </p>
           <details className="meal-plan__basis">

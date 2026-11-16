@@ -1,18 +1,19 @@
-import { useMemo, useState } from 'react'
+import { Suspense, lazy, useMemo, useState } from 'react'
 import { CalendarDays, FileText, LogOut, MessageSquareWarning, Utensils } from 'lucide-react'
 import { CategoryFilter } from './components/CategoryFilter'
 import { EntryCard } from './components/EntryCard'
 import { EntryModal } from './components/EntryModal'
-import { ReportGeneratorModal } from './components/ReportGeneratorModal'
-import { MenuLab } from './components/MenuLab'
-import { MealPlanner } from './components/MealPlanner'
 import { SearchBar } from './components/SearchBar'
 import { PageHero } from './components/PageHero'
+import { searchCases } from './utils/vocSearch'
 import {
   categories,
   getCaseById,
   vocCases,
 } from './data/vocCases'
+// CSS 순서는 그대로 유지합니다(탭을 나눠 불러와도 theme.css가 마지막에 적용되도록).
+import './report.css'
+import './mealPlan.css'
 import './shell.css'
 import './App.css'
 import './legibility.css'
@@ -28,89 +29,17 @@ function TrayMark() {
   )
 }
 
-/** 띄어쓰기를 무시하고 비교합니다('머리 카락' = '머리카락'). */
-function squash(text: string): string {
-  return text.toLowerCase().replace(/\s+/g, '')
-}
+// 첫 화면(VOC 대응)에 필요 없는 탭과 보고서 창은 처음 열 때 불러옵니다.
+const ReportGeneratorModal = lazy(() => import('./components/ReportGeneratorModal').then((module) => ({ default: module.ReportGeneratorModal })))
+const MenuLab = lazy(() => import('./components/MenuLab').then((module) => ({ default: module.MenuLab })))
+const MealPlanner = lazy(() => import('./components/MealPlanner').then((module) => ({ default: module.MealPlanner })))
 
-/** 같은 뜻으로 찾을 말: 검색 단어에 왼쪽 말이 있으면 오른쪽 말로도 찾습니다(단어마다 따로 적용). */
-const searchSynonyms: Array<[RegExp, string[]]> = [
-  [/짜(?!장|글|파게티|증|임)|짠|짰|짭/, ['염도', '짜다', '짜요', '짜서', '짜게', '짠맛', '짬']],
-  [/싱겁|싱거/, ['싱겁', '싱거', '염도']],
-  [/식었|식어|미지근/, ['식었', '식어', '미지근', '차갑']],
-  [/알러지|알레르기/, ['알레르기', '알러지']],
-  [/양이|적어|적게/, ['양 부족', '양이 적', '양이 부족', '적게', '제공량']],
-  [/품절|소진/, ['품절', '소진']],
-  [/불친절|응대|태도/, ['직원 응대', '불친절', '응대', '태도']],
-  [/더러|위생|청결/, ['위생', '청결', '더러']],
-  [/배탈|설사|복통|구토/, ['식중독', '배탈', '설사', '복통', '구토']],
-]
-
-/** 검색에서 버릴 군말 */
-const fillerWords = new Set(['너무', '정말', '진짜', '좀', '많이', '완전', '계속', '자꾸', '음식', '음식이', '나왔어요', '나왔다', '나옴', '나와요', '있어요', '있음', '있었어요', '해요', '했어요', '같아요', '같은', '것', '게'])
-
-/** 단어 끝 조사·어미를 뗍니다('머리카락이' → '머리카락', '불친절해요' → '불친절'). 두 글자 미만이 되면 떼지 않습니다. */
-function stem(word: string) {
-  // 조사만 뗀 경우는 한 글자 명사도 살립니다('밥이' → '밥', '국이' → '국').
-  const noParticle = word.replace(/(에서|에게|이랑|하고|이|가|은|는|을|를)$/, '')
-  if (noParticle !== word && noParticle.length >= 1) return noParticle
-  // '도'는 '온도'처럼 낱말 끝 글자일 수 있어 세 글자 이상일 때만 뗍니다.
-  if (word.length >= 3 && word.endsWith('도')) return word.slice(0, -1)
-  const stripped = word.replace(/(이에요|예요|였어요|었어요|았어요|했어요|해요|어요|아요|요|함|임|음)$/, '')
-  return stripped.length >= 2 ? stripped : word
-}
-
-/** 검색어를 단어로 나누고, 단어마다 같은 뜻 말을 붙입니다. 단어끼리는 모두 맞아야 합니다(AND). */
-function queryGroups(query: string): string[][] {
-  return query
-    .trim()
-    .split(/\s+/)
-    .map((word) => squash(word))
-    .filter((word) => word && !fillerWords.has(word))
-    .map((word) => {
-      const terms = new Set([word, stem(word)])
-      for (const [pattern, words] of searchSynonyms) {
-        if (pattern.test(word)) words.forEach((synonym) => terms.add(squash(synonym)))
-      }
-      return [...terms]
-    })
-}
-
-function matchedGroupCount(entry: (typeof vocCases)[number], groups: string[][]) {
-  const haystack = caseHaystack(entry)
-  return groups.filter((terms) => terms.some((term) => haystack.includes(term))).length
-}
-
-function caseHaystack(entry: (typeof vocCases)[number]) {
-  const categoryLabel = categories.find((c) => c.id === entry.category)?.label ?? ''
-  return squash(
-    [entry.title, categoryLabel, entry.incident, entry.customerScript, entry.onsiteAction, entry.rootCause, entry.prevention, entry.reportExample].join(' '),
+function TabLoading() {
+  return (
+    <p className="tab-loading" role="status">
+      불러오는 중입니다.
+    </p>
   )
-}
-
-function caseMatchesQuery(
-  entry: (typeof vocCases)[number],
-  groups: string[][],
-): boolean {
-  if (groups.length === 0) return true
-
-  const categoryLabel =
-    categories.find((c) => c.id === entry.category)?.label ?? ''
-
-  const haystack = [
-    entry.title,
-    categoryLabel,
-    entry.incident,
-    entry.customerScript,
-    entry.onsiteAction,
-    entry.rootCause,
-    entry.prevention,
-    entry.reportExample,
-  ]
-    .join(' ')
-
-  const squashed = squash(haystack)
-  return groups.every((terms) => terms.some((term) => squashed.includes(term)))
 }
 
 const PAGE_SIZE = 30
@@ -130,29 +59,10 @@ export default function App() {
 
   const selectedCase = selectedCaseId ? getCaseById(selectedCaseId) : null
 
-  const filteredCases = useMemo(() => {
-    const groups = queryGroups(searchQuery)
-    const exact = squash(searchQuery)
-
-    const inCategory = vocCases.filter((entry) => categoryFilter === 'all' || entry.category === categoryFilter)
-    let matched = inCategory.filter((entry) => caseMatchesQuery(entry, groups))
-    // 모든 단어가 맞는 사례가 없으면, 맞는 단어가 많은 순으로 보여 줍니다.
-    if (matched.length === 0 && groups.length > 1) {
-      matched = inCategory
-        .map((entry) => ({ entry, count: matchedGroupCount(entry, groups) }))
-        .filter((item) => item.count > 0)
-        .sort((a, b) => b.count - a.count)
-        .map((item) => item.entry)
-    }
-    if (!exact) return matched
-    // 검색어가 제목에 그대로 있으면 맨 위, 본문에 그대로 있으면 그다음으로 올립니다.
-    const rank = (entry: (typeof vocCases)[number]) =>
-      squash(entry.title).includes(exact) ? 0 : caseHaystack(entry).includes(exact) ? 1 : 2
-    return matched
-      .map((entry, index) => ({ entry, index, rank: rank(entry) }))
-      .sort((a, b) => a.rank - b.rank || a.index - b.index)
-      .map((item) => item.entry)
-  }, [categoryFilter, searchQuery])
+  const { cases: filteredCases, partial: isPartialMatch } = useMemo(
+    () => searchCases(vocCases, searchQuery, categoryFilter),
+    [categoryFilter, searchQuery],
+  )
 
   // 검색 조건이 바뀌면 다시 처음 30건부터 보여 줍니다.
   const [listKey, setListKey] = useState(`${categoryFilter}|${searchQuery}`)
@@ -161,9 +71,6 @@ export default function App() {
     setVisibleCount(PAGE_SIZE)
   }
   const visibleCases = filteredCases.slice(0, visibleCount)
-  const searchGroups = queryGroups(searchQuery)
-  const isPartialMatch =
-    searchGroups.length > 1 && filteredCases.length > 0 && !caseMatchesQuery(filteredCases[0], searchGroups)
 
   const activeCategoryLabel =
     categoryFilter === 'all'
@@ -209,7 +116,7 @@ export default function App() {
     <div className="app">
       <aside className="side-nav">
         {brand}
-        <nav aria-label="주요 메뉴">
+        <nav aria-label="주요 메뉴 (사이드바)">
           <ul className="nav-list">
             {navItems.map(({ id, label, icon: Icon }) => (
               <li key={id}>
@@ -350,10 +257,8 @@ export default function App() {
             </div>
           )}
         </>
-        ) : activeTab === 'recommend' ? (
-          <MenuLab />
         ) : (
-          <MealPlanner />
+          <Suspense fallback={<TabLoading />}>{activeTab === 'recommend' ? <MenuLab /> : <MealPlanner />}</Suspense>
         )}
       </main>
 
@@ -365,10 +270,12 @@ export default function App() {
       )}
 
       {isReportModalOpen && (
-        <ReportGeneratorModal onClose={() => setIsReportModalOpen(false)} />
+        <Suspense fallback={null}>
+          <ReportGeneratorModal onClose={() => setIsReportModalOpen(false)} />
+        </Suspense>
       )}
 
-      <nav className="tab-bar" aria-label="주요 메뉴">
+      <nav className="tab-bar" aria-label="주요 메뉴 (하단 탭)">
         {navItems.map(({ id, label, icon: Icon }) => (
           <button
             key={id}

@@ -13,7 +13,14 @@
 """
 
 import json
+import re
 import sys
+
+# 나트륨은 실제로 분석한 값(분석 함량)을 우선합니다. 재료량 기반 값은 카레 루·육수 베이스처럼 양념의 나트륨이
+# 빠져 낮게 나오는 경우가 있어, 분석 값이 없고 100g당 이 값보다 낮으면 '나트륨 자료 없음'으로 둡니다.
+SODIUM_RECIPE_FLOOR = 50
+# 밥류는 원래 나트륨이 거의 없어 위 기준을 적용하지 않습니다.
+LOW_SODIUM_NATURAL = re.compile(r'(쌀밥|현미밥|흑미밥|잡곡밥|콩밥|찹쌀밥|보리밥)')
 
 ORIGIN_ORDER = ['산업체급식', '중고등학교급식', '초등학교급식', '외식(재료량', '가정식', '외식(분석']
 
@@ -248,6 +255,19 @@ def origin_rank(origin):
     return len(ORIGIN_ORDER)
 
 
+RICE_BOWL_G = 210
+
+
+def scaled(part, amount):
+    ratio = amount / part['amount']
+    copy = dict(part)
+    copy['amount'] = amount
+    for key in ('kcal', 'protein', 'sodium'):
+        if copy.get(key) is not None:
+            copy[key] = copy[key] * ratio
+    return copy
+
+
 def parse_amount(text):
     text = text.strip()
     unit = 'ml' if text.endswith('ml') else 'g'
@@ -261,6 +281,7 @@ def main():
         header = handle.readline().rstrip('\n').split('\t')
         col = {name: index for index, name in enumerate(header)}
         best = {}
+        analyzed_sodium = {}
         for line in handle:
             row = line.rstrip('\n').split('\t')
             row += [''] * (len(header) - len(row))
@@ -279,6 +300,8 @@ def main():
                 continue
             if base <= 0 or amount <= 0:
                 continue
+            if '분석' in origin and sodium100 is not None and name not in analyzed_sodium:
+                analyzed_sodium[name] = sodium100 * 100 / base
             rank = origin_rank(origin)
             if name not in best or rank < best[name]['rank']:
                 best[name] = {
@@ -289,7 +312,19 @@ def main():
                     'kcal': kcal100 * amount / base,
                     'protein': protein100 * amount / base,
                     'sodium': None if sodium100 is None else sodium100 * amount / base,
+                    'sodium100': None if sodium100 is None else sodium100 * 100 / base,
                 }
+
+    # 나트륨 출처 정하기: 분석 값 → 재료량 기반 값(너무 낮으면 자료 없음)
+    for name, part in best.items():
+        if name in analyzed_sodium:
+            part['sodium'] = analyzed_sodium[name] * part['amount'] / 100
+            part['sodiumBasis'] = '분석'
+        elif part['sodium100'] is not None and (part['sodium100'] >= SODIUM_RECIPE_FLOOR or LOW_SODIUM_NATURAL.search(name)):
+            part['sodiumBasis'] = '재료량'
+        else:
+            part['sodium'] = None
+            part['sodiumBasis'] = None
 
     entries = []
     missing = []
@@ -298,19 +333,25 @@ def main():
         if any(part is None for part in parts):
             missing.append((menu, [name for name, part in zip(db_names, parts) if part is None]))
             continue
+        if len(parts) > 1:
+            # 덮밥처럼 두 음식을 합칠 때 쌀밥은 DB 식품중량(450g) 대신 한 공기(210g)로 봅니다.
+            parts = [scaled(part, RICE_BOWL_G) if name == '쌀밥' else part for name, part in zip(db_names, parts)]
         origins = []
         for part in parts:
             if part['origin'] not in origins:
                 origins.append(part['origin'])
         amount = sum(part['amount'] for part in parts)
         sodium = None if any(part['sodium'] is None for part in parts) else round(sum(part['sodium'] for part in parts) / amount * 100)
+        sodium_bases = sorted({part['sodiumBasis'] for part in parts if part['sodiumBasis']})
+        sodium_basis = None if sodium is None else ('분석 함량' if sodium_bases == ['분석'] else '재료량 기반' if sodium_bases == ['재료량'] else '분석·재료량 혼합')
         entries.append(
-            "  %s: { kcal100: %s, protein100: %s, sodium100: %s, dbServing: %d, dbName: %s, basis: %s },"
+            "  %s: { kcal100: %s, protein100: %s, sodium100: %s, sodiumBasis: %s, dbServing: %d, dbName: %s, basis: %s },"
             % (
                 json.dumps(menu, ensure_ascii=False),
                 round(sum(part['kcal'] for part in parts) / amount * 100, 1),
                 round(sum(part['protein'] for part in parts) / amount * 100, 2),
                 'null' if sodium is None else sodium,
+                'null' if sodium_basis is None else json.dumps(sodium_basis, ensure_ascii=False),
                 round(amount),
                 json.dumps(' + '.join(db_names), ensure_ascii=False),
                 json.dumps(' + '.join(origins), ensure_ascii=False),
@@ -328,6 +369,8 @@ def main():
  *   식단표의 1인 수치는 여기에 화면에서 정한 1인 분량을 곱해 계산합니다. 국물 음식의 나트륨은 국물을 모두 먹었을 때 기준입니다.
  * - dbServing 은 DB에 적힌 "식품중량"입니다. 음식마다 기준이 달라 1인 분량으로 그대로 쓰지 않고 참고로만 둡니다.
  * - 자료 구분은 급식 기준을 우선합니다: 산업체급식 → 중고등학교급식 → 초등학교급식 → 외식 → 가정식.
+ * - 나트륨은 같은 음식의 분석 함량 값을 우선합니다. 재료량 기반 값은 양념 나트륨이 빠져 낮게 나올 수 있어,
+ *   분석 값이 없고 100g당 50mg 미만이면(밥류 제외) 나트륨 자료 없음(null)으로 둡니다.
  * - 앱 메뉴명과 DB 음식명이 다른 경우 가장 가까운 음식의 수치입니다(dbName 참고).
  * - DB에서 같은 음식을 찾지 못한 메뉴는 넣지 않았습니다. 화면에는 "영양 자료 없음"으로 표시되고 합계에서 빠집니다.
  * - 표준 레시피 기준 참고값이므로 영양 표시에 쓰기 전에 실제 레시피·배식량으로 확인해야 합니다.
@@ -338,8 +381,10 @@ export interface MenuNutrition {
   kcal100: number
   /** 100g(ml)당 단백질(g) */
   protein100: number
-  /** 100g(ml)당 나트륨(mg). DB에 값이 없으면 null */
+  /** 100g(ml)당 나트륨(mg). 믿을 만한 값이 없으면 null */
   sodium100: number | null
+  /** 나트륨 값의 근거: 실제 분석한 값인지, 재료량으로 계산한 값인지 */
+  sodiumBasis: '분석 함량' | '재료량 기반' | '분석·재료량 혼합' | null
   /** DB에 적힌 식품중량(참고용) */
   dbServing: number
   /** DB에 실린 음식명 */

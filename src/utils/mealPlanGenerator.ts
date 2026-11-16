@@ -59,15 +59,18 @@ export interface NutritionTarget {
   kcalMin: number
   kcalMax: number
   proteinMin: number
+  /** 한 끼 나트륨 상한(mg, 국물을 모두 먹었을 때 기준) */
+  sodiumMax: number
 }
 
 /**
  * 1식 목표 기본값. 한국인 영양소 섭취기준(성인)의 하루 에너지 필요추정량·단백질 권장섭취량을
  * 세 끼로 나눈 값을 기준으로 잡은 초안이며, 화면에서 바꿀 수 있습니다.
+ * 나트륨 상한 1,500mg은 하루 기준 2,300mg의 약 2/3로, 국·찌개 국물을 모두 먹는다고 계산하는 점을 감안한 초안입니다.
  */
 export const sitePresets: Record<Exclude<SiteType, '직접 설정'>, Omit<NutritionTarget, 'site'>> = {
-  사무직: { kcalMin: 700, kcalMax: 800, proteinMin: 20 },
-  생산직: { kcalMin: 850, kcalMax: 950, proteinMin: 25 },
+  사무직: { kcalMin: 700, kcalMax: 800, proteinMin: 20, sodiumMax: 1500 },
+  생산직: { kcalMin: 850, kcalMax: 950, proteinMin: 25, sodiumMax: 1700 },
 }
 
 /**
@@ -112,8 +115,6 @@ export interface ItemNutrition {
 
 /** 성인 나트륨 만성질환위험감소섭취량(하루, 한국인 영양소 섭취기준) */
 export const SODIUM_DAILY_REFERENCE = 2300
-/** '염도'를 피할 요소로 고르면 한 끼 나트륨이 이 값을 넘지 않도록 점수를 깎습니다(하루 기준의 약 2/3). */
-const SODIUM_MEAL_SOFT_LIMIT = 1500
 
 export type NutritionStatus = 'ok' | 'low' | 'high' | 'partial' | 'none'
 
@@ -122,6 +123,9 @@ export interface DayNutrition {
   proteinG: number
   /** 나트륨 합계(mg). 자료 있는 메뉴만 더한 값 */
   sodiumMg: number
+  /** 열량 자료는 있지만 나트륨 자료가 없는 메뉴명 */
+  sodiumMissing: string[]
+  sodiumStatus: NutritionStatus
   servingG: number
   /** 영양 자료가 있는 메뉴 수 */
   known: number
@@ -315,6 +319,7 @@ export function computeDayNutrition(day: PlanDay, options: MealPlanOptions): Day
   let servingG = 0
   let known = 0
   const missing: string[] = []
+  const sodiumMissing: string[] = []
   dayItems(day).forEach((item) => {
     const data = itemNutrition(item, portions)
     if (!data) {
@@ -324,7 +329,8 @@ export function computeDayNutrition(day: PlanDay, options: MealPlanOptions): Day
     known += 1
     kcal += data.kcal
     proteinG += data.proteinG
-    sodiumMg += data.sodiumMg ?? 0
+    if (data.sodiumMg === null) sodiumMissing.push(item.name)
+    else sodiumMg += data.sodiumMg
     servingG += data.servingG
   })
 
@@ -341,11 +347,18 @@ export function computeDayNutrition(day: PlanDay, options: MealPlanOptions): Day
     if (proteinG >= target.proteinMin * 0.95) proteinStatus = 'ok'
     else proteinStatus = complete ? 'low' : 'partial'
   }
+  let sodiumStatus: NutritionStatus = 'none'
+  if (known > 0) {
+    if (sodiumMg > target.sodiumMax * 1.03) sodiumStatus = 'high'
+    else sodiumStatus = complete && sodiumMissing.length === 0 ? 'ok' : 'partial'
+  }
 
   return {
     kcal: Math.round(kcal),
     proteinG: round1(proteinG),
     sodiumMg: Math.round(sodiumMg),
+    sodiumMissing,
+    sodiumStatus,
     servingG: Math.round(servingG),
     known,
     missing,
@@ -410,8 +423,10 @@ function nutritionPenalty(candidate: PlanMenuItem, ctx: ScoreContext) {
   if (kcal > kcalMax) penalty += Math.min(14, (kcal - kcalMax) / 20)
   if (kcal < kcalMin) penalty += Math.min(14, (kcalMin - kcal) / 20)
   if (proteinG < proteinMin) penalty += Math.min(10, (proteinMin - proteinG) / 1.5)
-  if (options.avoid.includes('염도') && sodiumMg > SODIUM_MEAL_SOFT_LIMIT) {
-    penalty += Math.min(12, (sodiumMg - SODIUM_MEAL_SOFT_LIMIT) / 80)
+  // 나트륨 상한을 넘는 조합은 낮추고, '염도'를 피할 요소로 고르면 더 크게 낮춥니다.
+  const { sodiumMax } = options.target
+  if (sodiumMg > sodiumMax) {
+    penalty += options.avoid.includes('염도') ? Math.min(40, (sodiumMg - sodiumMax) / 50) : (sodiumMg - sodiumMax) / 150
   }
   return penalty
 }
@@ -669,8 +684,11 @@ export function summarizePlan(plan: MealPlan): PlanSummary {
     if (nutrition.kcalStatus === 'partial' && nutrition.kcal < target.kcalMin * 0.8) {
       warnings.push(`${label} 영양 자료 없는 메뉴(${nutrition.missing.join(', ')})가 있어 합계가 ${nutrition.kcal}kcal로 낮게 나옵니다. 실제 분량을 확인해 주세요.`)
     }
-    if (nutrition.sodiumMg > SODIUM_DAILY_REFERENCE) {
-      warnings.push(`${label} 나트륨이 ${nutrition.sodiumMg.toLocaleString('ko-KR')}mg으로 하루 기준(${SODIUM_DAILY_REFERENCE.toLocaleString('ko-KR')}mg)을 한 끼에 넘습니다(국물을 모두 먹었을 때 기준).`)
+    if (nutrition.sodiumStatus === 'high') {
+      const overDaily = nutrition.sodiumMg > SODIUM_DAILY_REFERENCE ? ` 하루 기준 ${SODIUM_DAILY_REFERENCE.toLocaleString('ko-KR')}mg도 넘습니다.` : ''
+      warnings.push(
+        `${label} 나트륨이 ${nutrition.sodiumMg.toLocaleString('ko-KR')}mg으로 한 끼 상한 ${target.sodiumMax.toLocaleString('ko-KR')}mg을 넘습니다(국물을 모두 먹었을 때 기준).${overDaily}`,
+      )
     }
     if (nutrition.proteinStatus === 'low') {
       if (nutrition.proteinG < target.proteinMin * 0.95) warnings.push(`${label} 단백질이 ${nutrition.proteinG}g으로 목표 ${target.proteinMin}g에 못 미칩니다.`)
@@ -683,7 +701,8 @@ export function summarizePlan(plan: MealPlan): PlanSummary {
       : completeDays.reduce((sum, nutrition) => sum + pick(nutrition), 0) / completeDays.length
   const avgKcal = average((nutrition) => nutrition.kcal)
   const avgProteinG = average((nutrition) => nutrition.proteinG)
-  const avgSodiumMg = average((nutrition) => nutrition.sodiumMg)
+  const sodiumDays = completeDays.filter((nutrition) => nutrition.sodiumMissing.length === 0)
+  const avgSodiumMg = sodiumDays.length === 0 ? null : sodiumDays.reduce((sum, nutrition) => sum + nutrition.sodiumMg, 0) / sodiumDays.length
 
   return {
     totalItems: items.length,
@@ -713,6 +732,11 @@ export function planToTsv(plan: MealPlan) {
     nutrition.known === 0 ? '자료 없음' : nutrition.missing.length > 0 ? `${value} (일부 제외)` : String(value)
   const kcalRow = ['열량(kcal)', ...totals.map((nutrition) => mark(nutrition, nutrition.kcal))]
   const proteinRow = ['단백질(g)', ...totals.map((nutrition) => mark(nutrition, nutrition.proteinG))]
-  const sodiumRow = ['나트륨(mg)', ...totals.map((nutrition) => mark(nutrition, nutrition.sodiumMg))]
+  const sodiumRow = [
+    '나트륨(mg)',
+    ...totals.map((nutrition) =>
+      nutrition.sodiumMissing.length > 0 && nutrition.missing.length === 0 ? `${nutrition.sodiumMg} (일부 제외)` : mark(nutrition, nutrition.sodiumMg),
+    ),
+  ]
   return [header, typeRow, ...rows, kcalRow, proteinRow, sodiumRow].map((cols) => cols.join('\t')).join('\n')
 }

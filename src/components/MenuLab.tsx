@@ -291,7 +291,7 @@ export function MenuLab() {
           )}
           {(result.preventionPoints.length > 0 || result.watchSigns.length > 0 || result.scenarios.length > 0) && (
             <div className="menu-lab-result__common">
-              {listSection('고르신 VOC 예방 포인트 (세 안 공통)', result.preventionPoints, 4)}
+              {listSection('피하려는 VOC 예방 포인트 (세 안 공통)', result.preventionPoints, 4)}
               {listSection('이런 신호가 보이면 바로 점검', result.watchSigns, 4)}
               {listSection('운영 시나리오', result.scenarios, 2)}
             </div>

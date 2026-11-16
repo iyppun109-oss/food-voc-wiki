@@ -637,6 +637,11 @@ export interface ReportAnalysis {
   label: string
 }
 
+/** 삼키거나 씹으면 다칠 수 있는 이물: 이물 혼입이어도 중대 기준으로 보고합니다. */
+const hazardousForeign = /(유리(?!컵|창|문|병)|철사|쇳조각|금속|쇠붙이|철수세미|스테이플|호치키스|볼트|너트|나사|칼날|(^|\s)못(이|이나|\s?조각))/
+/** 상하거나 기한이 지난 음식: 품질이어도 식중독 위험이 있어 중대 기준으로 보고합니다. */
+const spoiledFood = /(유통기한|소비기한|기한(이)?\s?지난|곰팡|상했|상한|변질|쉰내|쉬었)/
+
 /**
  * 유형 판정은 사용자가 직접 입력한 키워드와 메모만 씁니다.
  * 판정되지 않을 때만 사용자가 고른 유사 사례 유형을 참고하고, 사용자가 유형을 직접 고르면 그것을 따릅니다.
@@ -684,7 +689,11 @@ export function analyzeReportInput(
     isCookingQuality,
     isInjury,
     isAllergy,
-    isHighRisk: category === '식중독 의심' || category === '안전사고',
+    isHighRisk:
+      category === '식중독 의심' ||
+      category === '안전사고' ||
+      (category === '이물 혼입' && hazardousForeign.test(lower)) ||
+      (category === '품질' && spoiledFood.test(lower)),
     label: kb.label,
   }
 }

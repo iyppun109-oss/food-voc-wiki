@@ -101,7 +101,26 @@ const detectionCases: Array<[string, string, string?]> = [
   ['어제 저녁 먹고 열이 나요', '식중독 의심'],
   ['밥 먹고 배부른데 양은 적어요', '양 부족'],
   ['국 먹고 속이 쓰려요', '식중독 의심'],
+  // 2026-11 검수: 위험한 이물·기한 지난 음식
+  ['국에 철사', '이물 혼입'],
+  ['유리 조각이 나왔어요', '이물 혼입'],
+  ['스테이플러 심이 들어있어요', '이물 혼입'],
+  ['고무줄이 들어있음', '이물 혼입'],
+  ['볼트가 나옴', '이물 혼입'],
+  ['밥에 돌', '이물 혼입'],
+  ['손톱이 나왔어요', '이물 혼입'],
+  ['돌솥비빔밥이 짜요', '염도'],
+  ['유통기한 지난 요구르트', '품질'],
+  ['빵에 곰팡이 핀 것 같아요', '품질'],
 ]
+
+// 위험한 이물·상한 음식은 중대 기준
+for (const keyword of ['국에 철사', '유리 조각이 나왔어요', '유통기한 지난 요구르트']) {
+  if (!analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null).isHighRisk) fail(`고위험 판정 누락: "${keyword}"`)
+}
+for (const keyword of ['밥에 돌', '머리카락이 나왔어요']) {
+  if (analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null).isHighRisk) fail(`고위험 과판정: "${keyword}"`)
+}
 for (const [keyword, expected, sub] of detectionCases) {
   const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
   if (analysis.category !== expected) fail(`판정: "${keyword}" → ${analysis.category} (기대 ${expected})`)

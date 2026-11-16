@@ -113,7 +113,7 @@ export function checkReportQuality(
       if (!completionMarker.test(sentence)) continue
       for (const [action, pattern] of Object.entries(actionWords) as Array<[DoneAction, RegExp]>) {
         if (!checked.has(action) && pattern.test(sentence)) {
-          issues.push({ level: 'error', target, message: `${label}: 체크하지 않은 '${action}'이(가) 완료된 것처럼 쓰였습니다. ("${sentence}")` })
+          issues.push({ level: 'error', target, message: `${label}: 체크하지 않은 '${action}' 조치가 완료된 것처럼 쓰였습니다. ("${sentence}")` })
         }
       }
     }
@@ -227,7 +227,7 @@ export function checkInputConsistency(form: ReportFormState, analysis: ReportAna
   ]
   for (const [pattern, action] of memoActionHints) {
     if (pattern.test(form.memo) && !form.onsiteActions.includes(action as never)) {
-      issues.push({ level: 'info', target: 'input', message: `메모에 '${action}' 관련 내용이 있습니다. 실제로 했다면 '완료한 조치'에서 '${action}'을(를) 골라 주세요.` })
+      issues.push({ level: 'info', target: 'input', message: `메모에 '${action}' 관련 내용이 있습니다. 실제로 했다면 '완료한 조치'에서 '${action}' 항목을 골라 주세요.` })
     }
   }
   if (form.onsiteActions.includes('메뉴 회수') && form.onsiteActions.includes('음식 교체') === false && analysis.category === '품절') {

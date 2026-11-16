@@ -119,7 +119,7 @@ function detectMemoRisks(memo: string): VocRisk[] {
   // '짜장면이 맛있었어요'처럼 칭찬한 구절은 판정에서 뺍니다.
   const text = memo
     .split(/[\n,.!?]|그리고|근데|하지만|지만|는데|은데/)
-    .filter((clause) => !/(맛있|좋았|좋아요|괜찮|만족)/.test(clause))
+    .filter((clause) => !/(맛있|좋았|좋아요|좋다|괜찮|만족|칭찬|친절하|인기)/.test(clause))
     .join(' ')
     .trim()
   if (!text) return []
@@ -138,22 +138,22 @@ function detectMemoRisks(memo: string): VocRisk[] {
   if (/느끼|기름|기름진/.test(text)) {
     result.add('느끼함')
   }
-  if (/대기|기다리|대기시간|줄/.test(text)) {
+  if (/대기|기다리|줄(이|을)?\s?(길|서|섰|많)/.test(text)) {
     result.add('대기시간')
   }
   if (/식어|차갑|보온/.test(text)) {
     result.add('보온 지연')
   }
-  if (/이물|이물질|입자|작은 물|돌|털|이상한 물/.test(text)) {
+  if (/이물|이물질|돌(멩이|\s?조각|이 (나|씹))|머리카락|털이|이상한 게/.test(text)) {
     result.add('이물 혼입')
   }
   if (/위생|청결|불결|위생관리/.test(text)) {
     result.add('위생')
   }
-  if (/불친절|직원|응대|태도/.test(text)) {
+  if (/불친절|응대|태도|반말/.test(text)) {
     result.add('직원 응대')
   }
-  if (/설명|안내|문의|불편/.test(text)) {
+  if (/안내(가|를)?\s?(없|부족|못)|불편/.test(text)) {
     result.add('고객 불편')
   }
 
@@ -316,7 +316,9 @@ function selectSoups(menu: MainMenuItem, risks: VocRisk[], usedElsewhere: Set<st
     .map((soup) => {
       let score = 0
       if (menu.bestSoups.includes(soup.name)) score += 4
-      if (!soup.risks.some((risk) => risks.includes(risk))) score += 2
+      // 고른 VOC에 약한 국은 메인과 잘 어울려도 뒤로 미룹니다(예: 염도를 피할 때 된장국·장국).
+      if (soup.risks.some((risk) => risks.includes(risk))) score -= 8
+      else score += 2
       if (risks.includes('염도') && soup.roles.includes('담백')) score += 1
       if (soup.fitWith.includes(mealType)) score += 2
       // 조식에는 무거운 찌개·탕보다 맑은 국을 우선합니다.
@@ -382,7 +384,7 @@ function buildReason(menu: MainMenuItem, input: MenuLabInput, risks: VocRisk[]) 
   const avoided = risks.filter((risk) => menuControllableRisks.includes(risk) && !isWeakTo(risk))
   const weak = risks.filter((risk) => menuControllableRisks.includes(risk) && isWeakTo(risk))
   const lines = [fitLine]
-  if (avoided.length > 0) lines.push(`고르신 VOC 중 ${avoided.join(', ')} 우려가 적은 편입니다.`)
+  if (avoided.length > 0) lines.push(`피하려는 VOC 중 ${avoided.join(', ')} 우려가 적은 편입니다.`)
   if (weak.length > 0) lines.push(`다만 ${weak.join(', ')}에는 주의가 필요합니다.`)
   return lines.join(' ')
 }
@@ -482,6 +484,8 @@ export function recommendMenus(input: MenuLabInput): MenuRecommendationResult {
   })
 
   const notes: string[] = []
+  const memoOnly = avoidMemo.filter((risk) => !avoidInput.includes(risk))
+  if (memoOnly.length > 0) notes.push(`추가 메모에서 ${memoOnly.join(', ')} 관련 내용을 찾아 피할 VOC로 함께 반영했습니다.`)
   const budgetValue = parseBudgetValue(input.budget, input.customBudget)
   if (input.direction === '프리미엄' && detectBudgetTier(budgetValue) === 'economy') {
     notes.push(`식단가 ${budgetValue.toLocaleString('ko-KR')}원은 프리미엄 메뉴를 운영하기 빠듯해, 단가에 맞는 메뉴 위주로 골랐습니다.`)

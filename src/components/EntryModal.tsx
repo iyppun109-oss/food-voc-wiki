@@ -65,7 +65,7 @@ function referenceScriptFor(entry: VocCase) {
 export function EntryModal({ entry, onClose }: EntryModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
-  const [copied, setCopied] = useState(false)
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle')
   useModalFocus(dialogRef, closeButtonRef, onClose)
 
   const fallback = referenceScriptFor(entry)
@@ -74,9 +74,9 @@ export function EntryModal({ entry, onClose }: EntryModalProps) {
   const copyScript = async () => {
     try {
       await navigator.clipboard.writeText(scriptToCopy)
-      setCopied(true)
+      setCopyState('copied')
     } catch {
-      setCopied(false)
+      setCopyState('error')
     }
   }
 
@@ -117,9 +117,14 @@ export function EntryModal({ entry, onClose }: EntryModalProps) {
                       </div>
                     )}
                     <button type="button" className="meal-plan__button modal__copy" onClick={copyScript}>
-                      {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} strokeWidth={1.5} aria-hidden="true" />}
-                      {copied ? '복사했습니다' : '응대 문구 복사'}
+                      {copyState === 'copied' ? <Check size={16} aria-hidden="true" /> : <Copy size={16} strokeWidth={1.5} aria-hidden="true" />}
+                      {copyState === 'copied' ? '복사했습니다' : '응대 문구 복사'}
                     </button>
+                    {copyState === 'error' && (
+                      <p className="meal-plan__field-error" role="alert">
+                        복사하지 못했습니다. 문구를 직접 선택해 복사해 주세요.
+                      </p>
+                    )}
                   </>
                 ) : (
                   <p className="modal__text">{entry[key]}</p>

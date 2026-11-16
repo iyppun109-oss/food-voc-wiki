@@ -19,7 +19,7 @@ import {
 import { checkInputConsistency, checkReportQuality, type QualityIssue } from '../utils/reportQuality'
 import { applyRecommendedExpressions, checkForbiddenExpressions } from '../utils/reportSafetyChecker'
 import { useModalFocus } from '../utils/useModalFocus'
-import '../report.css'
+import { attachJosa } from '../utils/koreanJosa'
 
 interface ReportGeneratorModalProps {
   onClose: () => void
@@ -521,7 +521,7 @@ export function ReportGeneratorModal({ onClose }: ReportGeneratorModalProps) {
             <div className="report-submit">
               {showMissing && missing.length > 0 && (
                 <p className="report-submit__missing" role="alert">
-                  {missing.map((field) => field.label).join(', ')}을(를) 입력해 주세요.
+                  {attachJosa(missing.map((field) => field.label).join(', '), '을/를')} 입력해 주세요.
                 </p>
               )}
               <button type="submit" className="meal-plan__primary report-submit__button">

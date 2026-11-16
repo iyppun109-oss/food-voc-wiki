@@ -1235,3 +1235,10 @@ html:root {
 .modal__copy {
   margin-top: 10px;
 }
+
+/* 탭을 처음 열 때 잠깐 보이는 안내 */
+.tab-loading {
+  padding: 48px 0;
+  text-align: center;
+  color: var(--muted);
+}
