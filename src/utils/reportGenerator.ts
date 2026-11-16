@@ -537,6 +537,29 @@ const allergyInquiry: Partial<CategoryKnowledge> = {
   noApology: true,
 }
 
+/** 알레르기 표시·안내가 부족하다는 불만: 증상이 있었다고 쓰지 않고, 표시 누락을 사과합니다. */
+const allergyLabelComplaint: Partial<CategoryKnowledge> = {
+  label: '알레르기 표시·안내 불만',
+  clientLabel: '알레르기 표시·안내 부족',
+  incident: '{m}의 알레르기 유발 성분 표시·안내가 부족하다는 고객 의견 접수됨.',
+  customerEmpathy: '{t}의 알레르기 유발 성분 안내가 부족해 식사에 어려움이 있으셨을 것 같습니다.',
+  apologyScope: '식사',
+  customerCheck: '해당 메뉴의 원재료와 알레르기 유발 성분을 확인해 안내드리고, 표시가 빠진 부분은 바로 보완하겠습니다.',
+  customerPrevention: '메뉴별 알레르기 유발 성분 표시를 다시 점검하겠습니다. 혹시 식사 후 불편한 증상이 있으시면 바로 말씀해 주십시오.',
+  internalChecks: [
+    { text: '해당 메뉴의 원재료·알레르기 유발 성분 확인 예정임.', topic: /원재료|성분/ },
+    { text: '배식대 알레르기 표시 상태 확인 예정임.', topic: /표시/ },
+    { text: '고객 증상 여부 확인 필요함.' },
+  ],
+  causes: ['알레르기 표시 누락', '메뉴 변경 후 표시 미갱신'],
+  internalPrevention: ['메뉴별 알레르기 유발 성분 표시를 점검하겠음.', '메뉴가 바뀌면 표시도 함께 갱신하겠음.'],
+  clientCheck: '해당 메뉴의 원재료와 배식대 알레르기 표시 상태를 확인하겠습니다.',
+  clientPrevention: '메뉴별 알레르기 유발 성분 표시 점검을 강화하겠습니다.',
+}
+
+/** 알레르기 유발 식품 이름(성분 문의 판단용) */
+const allergenNames = /(땅콩|새우|게살|우유|계란|달걀|밀가루|대두|견과|호두|잣|조개|굴|홍합|복숭아|토마토|메밀|고등어|오징어|돼지고기|쇠고기|소고기|닭고기)/
+
 /** 불만 없이 묻기만 한 문의(원산지·운영 시간 등): 불편·사과 문장을 쓰지 않습니다. */
 const generalInquiry: Partial<CategoryKnowledge> = {
   label: '고객 문의',
@@ -578,7 +601,7 @@ const injurySafety: Partial<CategoryKnowledge> = {
 const injuryKeywords = /(화상|데었|데였|데임|베었|베임|베였|찔림|찔렸|미끄러(졌|짐|져)|넘어(졌|짐|져)|다쳤|다침)/
 /** 치아 사고로 볼 단어. '돌솥'의 '돌'처럼 다른 낱말 속 글자는 빼도록 좁혀 둡니다. */
 const dentalKeywords = /(치아|이빨|이가\s?(깨|부러|빠|아프)|파절|돌(을|이)?\s?씹|돌조각|돌멩이|딱딱한\s?(물질|이물|것))/
-const allergyKeywords = /(알레르기|알러지|두드러기|가려|발진)/
+const allergyKeywords = /(알레르기|알러지|두드러기|가려|간지|발진|부었|부어|붓|따끔|반응)/
 
 /** 알레르기 의심: 식사 후 이상 증상의 세부 갈래 */
 const allergySymptom: Partial<CategoryKnowledge> = {
@@ -719,6 +742,8 @@ export interface ReportAnalysis {
   isStorageInquiry: boolean
   /** 알레르기 유발 성분·원재료 문의(증상 없음) */
   isAllergyInquiry: boolean
+  /** 알레르기 표시·안내 불만(증상 없음) */
+  isAllergyLabelComplaint: boolean
   /** 유형 없는 순수 문의 */
   isGeneralInquiry: boolean
   label: string
@@ -735,7 +760,7 @@ const observedFact = /(마셨|먹었|먹은|먹고|먹다|드셨|드시고|핀|�
 /** 알레르기 성분을 묻는 말 */
 const allergyQuestion = /(문의|궁금|알려\s?주|성분|들어\s?(갔|가|있)|있나요|인가요|되나요|확인\s?(부탁|해\s?주))/
 /** 알레르기 증상을 말하는 표현 */
-const allergySymptomWords = /(두드러기|가려|간지|붓|부었|부어|호흡|숨이|증상|발진|두통|토했|구토|설사|복통|배가|아파|아프|따끔|빨개|올라왔)/
+const allergySymptomWords = /(두드러기|가려|간지|붓|부었|부어|호흡|숨이|증상|반응|있었|생겼|발진|두통|토했|구토|설사|복통|배가|아파|아프|따끔|빨개|빨갛|올라왔)/
 /** 불만을 말하는 표현(있으면 순수 문의로 보지 않음) */
 const complaintWords = /(불편|불만|불친절|기다|늦|더러|화가|화나|짜증|실망|최악|별로)/
 function statesObservedFact(text: string) {
@@ -780,14 +805,22 @@ export function analyzeReportInput(
   const isInquiry = inquiryOnly.test(lower) && !statesObservedFact(lower)
   const isSpoiled = category === '품질' && spoiledFood.test(lower) && !isInquiry
   const isStorageInquiry = category === '품질' && spoiledFood.test(lower) && isInquiry
-  // 알레르기 성분을 묻기만 하고 증상은 말하지 않은 경우
+  const mentionsAllergy = /(알레르기|알러지)/.test(lower)
+  const hasSymptom = allergySymptomWords.test(lower)
+  // 알레르기 성분을 묻기만 하고 증상은 말하지 않은 경우('땅콩 들어갔는지 궁금해요'처럼 알레르기 식품을 물어도 포함)
   const isAllergyInquiry =
-    category === '식중독 의심' && allergyKeywords.test(lower) && allergyQuestion.test(lower) && !allergySymptomWords.test(lower)
+    !hasSymptom &&
+    allergyQuestion.test(lower) &&
+    ((category === '식중독 의심' && mentionsAllergy) || (category === '기타' && allergenNames.test(lower) && /(들어|성분|함유|포함)/.test(lower)))
+  // 알레르기 표시·안내 불만: 증상도 질문도 없이 알레르기를 말한 경우('알레르기 표시가 없어요')
+  const isAllergyLabelComplaint = category === '식중독 의심' && mentionsAllergy && !hasSymptom && !isAllergyInquiry
   // 유형이 정해지지 않은 순수 문의(원산지·운영 시간 등)
-  const isGeneralInquiry = category === '기타' && inquiryOnly.test(lower) && !complaintWords.test(lower)
+  const isGeneralInquiry = category === '기타' && !isAllergyInquiry && inquiryOnly.test(lower) && !complaintWords.test(lower)
   const kb = isAllergyInquiry
     ? { ...knowledge[category], ...allergyInquiry }
-    : isGeneralInquiry
+    : isAllergyLabelComplaint
+      ? { ...knowledge[category], ...allergyLabelComplaint }
+      : isGeneralInquiry
       ? { ...knowledge[category], ...generalInquiry }
       : resolveKnowledge(category, isCookingQuality, isInjury, isAllergy, isSpoiled, isStorageInquiry)
 
@@ -805,9 +838,10 @@ export function analyzeReportInput(
     isSpoiled,
     isStorageInquiry,
     isAllergyInquiry,
+    isAllergyLabelComplaint,
     isGeneralInquiry,
     isHighRisk:
-      (category === '식중독 의심' && !isAllergyInquiry) ||
+      (category === '식중독 의심' && !isAllergyInquiry && !isAllergyLabelComplaint) ||
       category === '안전사고' ||
       (category === '이물 혼입' && hazardousForeign.test(lower)) ||
       isSpoiled,
@@ -868,7 +902,9 @@ function buildContext(form: ReportFormState, selectedCase: VocCase | null) {
   const analysis = analyzeReportInput(form, selectedCase)
   const kb = analysis.isAllergyInquiry
     ? { ...knowledge[analysis.category], ...allergyInquiry }
-    : analysis.isGeneralInquiry
+    : analysis.isAllergyLabelComplaint
+      ? { ...knowledge[analysis.category], ...allergyLabelComplaint }
+      : analysis.isGeneralInquiry
       ? { ...knowledge[analysis.category], ...generalInquiry }
       : resolveKnowledge(analysis.category, analysis.isCookingQuality, analysis.isInjury, analysis.isAllergy, analysis.isSpoiled, analysis.isStorageInquiry)
   const doneActions = doneActionOptions.filter((action) => form.onsiteActions.includes(action))

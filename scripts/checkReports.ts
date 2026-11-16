@@ -124,6 +124,8 @@ const detectionCases: Array<[string, string, string?]> = [
   ['수건에서 쉰내가 나요', '위생 불만'],
   ['쉰 김치가 나왔어요', '품질'],
   ['직원이 쉰 목소리로 불친절하게 대답함', '직원 응대'],
+  ['그릇에서 비린내가 나요', '위생 불만'],
+  ['생선이 비린내가 심해요', '품질'],
 ]
 
 // 묻기만 한 경우는 증상·불편·사과를 쓰지 않음
@@ -136,7 +138,33 @@ for (const [keyword, flag] of [['어제 먹은 거 알레르기 성분 문의', 
   const all = [report.customerMessage, report.internalReport, report.clientReport].join('\n')
   if (/증상이 나타나|증상이 있다는|번거로우셨|불편을 드려/.test(all)) fail(`문의인데 증상·불편 문구가 들어감: "${keyword}"`)
 }
-if (!analyzeReportInput({ keyword: '알레르기 성분 문의했는데 두드러기가 났어요', memo: '', categoryOverride: '' }, null).isHighRisk) fail('알레르기 증상이 있는데 문의로 낮아짐')
+// 알레르기 반응은 어떤 말로 와도 중대(식사 후 이상 증상)
+for (const keyword of [
+  '알레르기 성분 문의했는데 두드러기가 났어요',
+  '알레르기 반응이 있었는데 원인 알려 주세요',
+  '땅콩 먹고 목이 부었어요',
+  '먹고 나서 입술이 부었어요',
+  '먹고 나서 가려워요',
+  '알레르기 표시가 없어서 먹었는데 입술이 부었어요',
+]) {
+  const analysis = analyzeReportInput({ keyword, memo: '', categoryOverride: '' }, null)
+  if (analysis.category !== '식중독 의심' || !analysis.isAllergy || !analysis.isHighRisk || analysis.isAllergyInquiry || analysis.isAllergyLabelComplaint) {
+    fail(`알레르기 반응이 중대로 판정되지 않음: "${keyword}" → ${analysis.label}`)
+  }
+}
+// 증상이 없으면 증상을 쓰지 않음
+for (const [keyword, flag] of [
+  ['알레르기 표시가 없어요', 'isAllergyLabelComplaint'],
+  ['알레르기 때문에 못 먹었어요', 'isAllergyLabelComplaint'],
+  ['땅콩 들어갔는지 궁금해요', 'isAllergyInquiry'],
+  ['새우 알레르기 있는데 오늘 국에 들어갔나요?', 'isAllergyInquiry'],
+] as const) {
+  const form = { ...base, keyword }
+  const analysis = analyzeReportInput(form, null)
+  if (!analysis[flag]) fail(`알레르기 갈래 판정 오류: "${keyword}" → ${analysis.label}`)
+  const report = generateReportContents(form, null)
+  if (/증상이 나타나|증상이 있다는/.test([report.customerMessage, report.internalReport, report.clientReport].join('\n'))) fail(`증상 없는데 증상 문구: "${keyword}"`)
+}
 
 // 겪은 일을 말하면 '확인해 주세요'로 끝나도 변질 제보(중대)
 for (const keyword of ['유통기한 지난 우유 마셨는데 확인 부탁', '곰팡이 핀 빵 확인해 주세요', '상한 것 같은데 확인 요청', '어제 먹은 김밥이 쉰 것 같은데 알려 주세요']) {
